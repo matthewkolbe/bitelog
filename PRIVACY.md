@@ -1,6 +1,6 @@
 # Bite Log Privacy Policy
 
-*Last updated: October 30, 2026*
+*Last updated: October 31, 2026*
 
 Bite Log has no server and no accounts. The developer does not collect,
 receive, or store any of your data.
@@ -9,13 +9,15 @@ receive, or store any of your data.
 
 - Your food log, goals, custom foods and recipes.
 - Photos you take in the app and your voice recordings.
-- Your model settings. API keys are stored in the iOS Keychain.
+- Your model settings. API keys are stored in the iOS Keychain, on this device
+  only: they are not included in backups and don't move to a new phone.
 
 Voice is turned into text on your phone by Apple's speech recognition.
 Recordings are not sent anywhere.
 
-This data is included in your device's iCloud or computer backups, if you
-use them, like any other app's data. Deleting the app deletes it from the
+Your log, photos, recordings and settings are included in your device's
+iCloud or computer backups, if you use them, like any other app's data.
+Apple holds those backups in your account; the developer has no access to them. Deleting the app deletes it from the
 phone.
 
 ## What goes to your AI model provider

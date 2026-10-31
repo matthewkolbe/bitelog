@@ -5,7 +5,7 @@ scrambled with a slice of sourdough"), or photograph your plate, and Bite Log
 works out the calories, protein, fat and carbs.
 
 Bring your own AI model: Claude, OpenAI, OpenRouter, or a model you run
-yourself (llama.cpp, Ollama, LM Studio). Your food log stays on your phone.
+yourself (llama.cpp, Ollama, LM Studio). Your food log stays with you: on your phone and in your own backups.
 
 ## Why Bite Log
 
@@ -18,7 +18,7 @@ to help people have a healthy relationship with food, so it has:
 - **No gamification.** No streaks, badges, points, scores or reminders.
 - **No upselling.** No ads, subscriptions or in-app purchases.
 - **Complete privacy.** No account and no Bite Log server. Your log lives on
-  your phone.
+  your phone and in your own backups, never with us.
 
 The person who built Bite Log doesn't need it to make money, and doesn't think
 compromising anyone's health for a few extra dollars is worth it. The goal is
@@ -44,9 +44,10 @@ didn't pick.
 ## Privacy
 
 There is no Bite Log server and no account. Your log, photos and recordings are
-stored on your phone. When you log something, the text or photo goes to the
+stored on your phone, and in its backups (iCloud or your computer) if you make
+them; the developer never receives any of it. When you log something, the text or photo goes to the
 model provider you chose, under that provider's terms. API keys are kept in
-the iOS Keychain. Full policy: [PRIVACY.md](PRIVACY.md).
+the iOS Keychain on this device only, never in backups. Full policy: [PRIVACY.md](PRIVACY.md).
 
 ## Building
 

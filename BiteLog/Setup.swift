@@ -42,9 +42,9 @@ struct IntroView<Action: View>: View {
                       "There's no Bite Log server or account. Connect a model you choose, like Claude with an "
                       + "API key, or one you run yourself. You pay that provider directly, a few short requests per meal.")
                 point("lock.fill", "Private by design",
-                      "Your log, photos and recordings stay on this phone, and speech becomes text here too. "
-                      + "Only what you log goes to your provider. Your key stays in the iPhone's Keychain. "
-                      + "Nothing is sent to us.")
+                      "Your log, photos and recordings stay on this phone and in your own backups, and speech "
+                      + "becomes text here too. Only what you log goes to your provider. Your key stays in this "
+                      + "iPhone's Keychain. Nothing is sent to us.")
                 Link("Privacy policy", destination: URL(string: "https://github.com/matthewkolbe/bitelog/blob/main/PRIVACY.md")!)
                     .font(.callout)
             }
