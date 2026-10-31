@@ -7,6 +7,29 @@ works out the calories, protein, fat and carbs.
 Bring your own AI model: Claude, OpenAI, OpenRouter, or a model you run
 yourself (llama.cpp, Ollama, LM Studio). Your food log stays on your phone.
 
+## Why Bite Log
+
+Food tracking should help you understand what you eat, not make you anxious
+about it. Some research has linked calorie-tracking apps with disordered
+eating, and many of them are built to keep you hooked: streaks to protect,
+badges to earn, reminders that nag, premium tiers to sell. Bite Log's goal is
+to help people have a healthy relationship with food, so it has:
+
+- **No gamification.** No streaks, badges, points, scores or reminders.
+- **No upselling.** No ads, subscriptions or in-app purchases.
+- **Complete privacy.** No account and no Bite Log server. Your log lives on
+  your phone.
+
+The person who built Bite Log doesn't need it to make money, and doesn't think
+compromising anyone's health for a few extra dollars is worth it. The goal is
+to help us be better, not profits.
+
+Bite Log grew out of the local LLM movement: people running AI models on their
+own hardware because your data should belong to you. So Bite Log has no AI of
+its own. You connect a model you choose, Claude with your own API key or a
+model on your own computer, and your food diary never touches a company you
+didn't pick.
+
 ## What it does
 
 - **Log by voice, text or photo.** Speech is turned into text on the phone.
