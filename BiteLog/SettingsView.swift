@@ -29,6 +29,9 @@ struct SettingsView: View {
 
             Section {
                 NavigationLink { FoodsView(model: model) } label: { Label("My foods and recipes", systemImage: "basket") }
+                NavigationLink {
+                    IntroView { EmptyView() }.navigationBarTitleDisplayMode(.inline)
+                } label: { Label("How Bite Log works", systemImage: "questionmark.circle") }
             }
 
             Section {

@@ -13,9 +13,10 @@ final class SettingsUITests: XCTestCase {
         app.launchArguments = ["-uitest"]
         app.launch()
         // no model yet: setup is the only screen
-        let intro = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Connect one to start'")).firstMatch
-        XCTAssertTrue(intro.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.staticTexts["Bring your own AI model"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.tabBars.buttons["Today"].exists)
+        shot(app, "0-intro")
+        app.buttons["Connect a model"].tap()
         shot(app, "1-setup")
 
         // a navigation row's label is "title, subtitle"

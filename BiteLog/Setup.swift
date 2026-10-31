@@ -1,37 +1,98 @@
 import SwiftUI
 
 /// Shown instead of the app while no model is saved: nothing can be logged
-/// without one, so connecting a model comes first.
+/// without one. Starts with what Bite Log is, then connecting a model.
 struct SetupView: View {
     let store: ProfileStore
     let client: LLMClient
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Text("Bite Log uses an AI model to read what you ate. Connect one to start.")
+            IntroView {
+                NavigationLink {
+                    ModelChoice(store: store, client: client)
+                } label: {
+                    Text("Connect a model").font(.headline).frame(maxWidth: .infinity, minHeight: 50)
                 }
-                Section {
-                    ForEach(Preset.all) { preset in
-                        NavigationLink {
-                            ConnectView(preset: preset, store: store, client: client)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(preset.title)
-                                Text(preset.detail).font(.caption).foregroundStyle(.secondary)
-                            }
+                .buttonStyle(.borderedProminent)
+                .buttonBorderShape(.capsule)
+            }
+        }
+    }
+}
+
+/// What Bite Log does, why it needs your own AI model, and what stays private.
+/// The first screen of setup, and "How Bite Log works" in Settings.
+struct IntroView<Action: View>: View {
+    @ViewBuilder var action: () -> Action
+
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 26) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Bite Log").font(.largeTitle.bold())
+                    Text("A food diary you talk to.").font(.title3).foregroundStyle(.secondary)
+                }
+                .padding(.top, 24)
+                point("mic.fill", "Say, type or snap it",
+                      "Tell it what you ate, or take a photo. It works out the calories, protein, fat and carbs.")
+                point("books.vertical.fill", "Numbers from the USDA",
+                      "The AI model reads what you ate. The numbers come from the USDA food database built into the app.")
+                point("key.fill", "Bring your own AI model",
+                      "There's no Bite Log server or account. Connect a model you choose, like Claude with an "
+                      + "API key, or one you run yourself. You pay that provider directly, a few short requests per meal.")
+                point("lock.fill", "Private by design",
+                      "Your log, photos and recordings stay on this phone, and speech becomes text here too. "
+                      + "Only what you log goes to your provider. Your key stays in the iPhone's Keychain. "
+                      + "Nothing is sent to us.")
+                Link("Privacy policy", destination: URL(string: "https://github.com/matthewkolbe/bitelog/blob/main/PRIVACY.md")!)
+                    .font(.callout)
+            }
+            .padding(.horizontal, 24).padding(.bottom, 16)
+        }
+        .safeAreaInset(edge: .bottom) {
+            if Action.self != EmptyView.self {
+                action().padding(.horizontal, 24).padding(.vertical, 12).background(.bar)
+            }
+        }
+    }
+
+    private func point(_ icon: String, _ title: String, _ text: String) -> some View {
+        HStack(alignment: .top, spacing: 16) {
+            Image(systemName: icon).font(.title2).foregroundStyle(.tint).frame(width: 34)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(title).font(.headline)
+                Text(text).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+}
+
+/// The model presets to start from.
+struct ModelChoice: View {
+    let store: ProfileStore
+    let client: LLMClient
+
+    var body: some View {
+        List {
+            Section {
+                ForEach(Preset.all) { preset in
+                    NavigationLink {
+                        ConnectView(preset: preset, store: store, client: client)
+                    } label: {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(preset.title)
+                            Text(preset.detail).font(.caption).foregroundStyle(.secondary)
                         }
                     }
-                } header: {
-                    Text("Connect a model")
-                } footer: {
-                    Text("A Claude API key is the quickest. Keys stay on this phone. "
-                         + "You can add more models later in Settings.")
                 }
+            } footer: {
+                Text("A Claude API key is the quickest: make one at console.anthropic.com. "
+                     + "You can add more models later in Settings, and the app uses the first one that answers.")
             }
-            .navigationTitle("Welcome")
         }
+        .navigationTitle("Connect a model")
+        .navigationBarTitleDisplayMode(.inline)
     }
 }
 
