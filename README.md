@@ -27,8 +27,9 @@ to help us be better, not profits.
 Bite Log grew out of the local LLM movement: people running AI models on their
 own hardware because your data should belong to you. So Bite Log has no AI of
 its own. You connect a model you choose, Claude with your own API key or a
-model on your own computer, and your food diary never touches a company you
-didn't pick.
+model on your own computer. Your health data only touches Apple (your phone
+and its backups) and the AI you give permission to, never the author of this
+app.
 
 ## What it does
 
