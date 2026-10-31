@@ -56,12 +56,13 @@ final class SettingsUITests: XCTestCase {
         let done = NSPredicate(format: "label MATCHES '.*[0-9]+$'")  // done rows end with their kcal
         XCTAssertTrue(app.buttons.matching(done).firstMatch.waitForExistence(timeout: 300), "entry never finished")
         shot(app, "7-logged")
-        app.buttons.matching(done).firstMatch.tap()
-        XCTAssertTrue(app.staticTexts["Items"].waitForExistence(timeout: 5))
+        app.buttons.matching(done).firstMatch.tap()  // opens in place
+        let changeButton = app.buttons["Change this entry"]
+        XCTAssertTrue(changeButton.waitForExistence(timeout: 5))
         shot(app, "8-entry")
 
         // change it by text
-        app.buttons["Change this entry"].tap()
+        changeButton.tap()
         let change = app.textFields.firstMatch
         XCTAssertTrue(change.waitForExistence(timeout: 5))
         change.tap()

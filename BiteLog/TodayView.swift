@@ -10,6 +10,11 @@ struct TodayView: View {
     @State private var writeError: String?
     @State private var photo: Data?
     @State private var history = false
+    /// Entries opened in place, and the sheets opened from them.
+    @State private var open: Set<Int64> = []
+    @State private var changing: Int64?
+    @State private var adding: Int64?
+    @State private var editing: LogDB.Item?
     @State private var recorder = Recorder()
     @State private var keyboard = false
     @FocusState private var typing: Bool
@@ -25,19 +30,25 @@ struct TodayView: View {
             case .failure(let e):
                 Text("Couldn't read the log: \(String(describing: e))").foregroundStyle(.red)
             case .success(let (entries, totals)):
-                Section { TotalsView(totals: totals) }
                 Section {
-                    ForEach(entries.reversed()) { e in
-                        NavigationLink(value: e.id) { EntryRow(entry: e) }
-                    }
-                    .onDelete { offsets in
-                        let shown = Array(entries.reversed())
-                        for i in offsets { delete(shown[i].id) }
-                    }
+                    TotalsView(totals: totals)
                 } footer: {
                     if entries.isEmpty {
                         Text(day == today ? "Hold the mic and say what you ate: “130 grams of grapes and a cup of whole milk.”"
                                           : "Nothing logged this day.")
+                    }
+                }
+                // one card per entry: tap to open it in place
+                ForEach(entries.reversed()) { e in
+                    let isOpen = open.contains(e.id) || e.status == .error || e.pendingEdit != nil
+                    Section {
+                        Button { toggle(e.id) } label: { EntryRow(entry: e, open: isOpen) }
+                            .foregroundStyle(.primary)
+                            .swipeActions { Button("Delete", role: .destructive) { delete(e.id) } }
+                        if isOpen {
+                            EntryDetail(entry: e, model: model, change: { changing = e.id }, add: { adding = e.id },
+                                        edit: { editing = $0 })
+                        }
                     }
                 }
             }
@@ -64,7 +75,16 @@ struct TodayView: View {
                     .accessibilityLabel("Next day").disabled(day >= today)
             }
         }
-        .navigationDestination(for: Int64.self) { id in EntryView(id: id, model: model) }
+        .listSectionSpacing(10)
+        .sheet(item: Binding(get: { changing.map(Opened.init) }, set: { changing = $0?.id })) { o in
+            NavigationStack { ChangeSheet(id: o.id, model: model) }
+        }
+        .sheet(item: Binding(get: { adding.map(Opened.init) }, set: { adding = $0?.id })) { o in
+            NavigationStack { AddFoodSheet(entryID: o.id, model: model) }
+        }
+        .sheet(item: $editing) { item in
+            NavigationStack { ItemSheet(item: item, model: model) }
+        }
         .sheet(isPresented: $history) {
             NavigationStack { HistoryView(log: log) { day = $0; history = false } }
         }
@@ -172,6 +192,10 @@ struct TodayView: View {
         }
     }
 
+    private func toggle(_ id: Int64) {
+        if open.contains(id) { open.remove(id) } else { open.insert(id) }
+    }
+
     private func delete(_ id: Int64) {
         do { try log.deleteEntry(id) } catch { writeError = "Couldn't delete: \(error)" }
     }
@@ -259,8 +283,12 @@ struct TotalsView: View {
     }
 }
 
+/// An entry id as a sheet's item.
+private struct Opened: Identifiable { let id: Int64 }
+
 struct EntryRow: View {
     let entry: LogDB.Entry
+    var open = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -277,7 +305,11 @@ struct EntryRow: View {
             } else if [.queued, .transcribing, .thinking, .waiting].contains(entry.status) && entry.error == nil {
                 ProgressView()
             }
+            Image(systemName: "chevron.right").font(.caption.weight(.semibold)).foregroundStyle(.tertiary)
+                .rotationEffect(.degrees(open ? 90 : 0))
+                .accessibilityHidden(true)
         }
+        .contentShape(.rect)
     }
 
     @ViewBuilder private var status: some View {

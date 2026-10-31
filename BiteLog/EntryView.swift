@@ -1,88 +1,79 @@
 import SwiftUI
 
-/// One entry: what was said, typed or photographed, its items, and changes to it.
-struct EntryView: View {
-    let id: Int64
+/// What an entry shows when opened in the day's list, as rows under its
+/// summary: actions, the photo, what was said, the items, and the model's notes.
+/// Tapping an item opens it; the pencil changes the entry; ⋯ has the rest.
+struct EntryDetail: View {
+    let entry: LogDB.Entry
     let model: AppModel
-    @Environment(\.dismiss) private var dismiss
-    @State private var actionError: String?
-    @State private var changing = false
-    @State private var adding = false
-    @State private var editing: LogDB.Item?
+    let change: () -> Void
+    let add: () -> Void
+    let edit: (LogDB.Item) -> Void
     @State private var confirmDelete = false
+    @State private var actionError: String?
 
-    private var log: LogDB { model.log }
+    private var e: LogDB.Entry { entry }
 
     var body: some View {
-        let _ = log.revision
-        Form {
-            switch Result(catching: { try log.entry(id) }) {
-            case .failure(let e):
-                Text(String(describing: e)).foregroundStyle(.red)
-            case .success(nil):
-                Text("This entry was deleted.")
-            case .success(let e?):
-                content(e)
+        HStack(spacing: 18) {
+            Text([e.createdAt.formatted(date: .omitted, time: .shortened), e.meal, e.model].compactMap { $0 }
+                .joined(separator: " · "))
+                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            Spacer()
+            if e.status == .done && e.pendingEdit == nil {
+                Button(action: change) { Image(systemName: "pencil") }
+                    .accessibilityLabel("Change this entry")
             }
+            Menu {
+                if e.status == .done && e.pendingEdit == nil {
+                    Button(action: add) { Label("Add a food", systemImage: "plus") }
+                }
+                if ![.thinking, .transcribing, .waiting].contains(e.status) {
+                    Button { act { try model.log.redo(e.id); model.logger.kick() } } label: {
+                        Label(e.status == .done ? "Redo with the model" : "Try again", systemImage: "arrow.clockwise")
+                    }
+                }
+                Button(role: .destructive) { confirmDelete = true } label: { Label("Delete entry", systemImage: "trash") }
+            } label: {
+                Image(systemName: "ellipsis").frame(width: 28, height: 28).contentShape(.rect)
+            }
+            .accessibilityLabel("Entry options")
         }
-        .navigationTitle("Entry")
-        .navigationBarTitleDisplayMode(.inline)
-        .sheet(isPresented: $changing) {
-            NavigationStack { ChangeSheet(id: id, model: model) }
+        .buttonStyle(.borderless)
+        .confirmationDialog("Delete this entry?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete", role: .destructive) { act { try model.log.deleteEntry(e.id) } }
         }
-        .sheet(isPresented: $adding) {
-            NavigationStack { AddFoodSheet(entryID: id, model: model) }
-        }
-        .sheet(item: $editing) { item in
-            NavigationStack { ItemSheet(item: item, model: model) }
-        }
-    }
+        if let actionError { Text(actionError).font(.callout).foregroundStyle(.red) }
 
-    @ViewBuilder private func content(_ e: LogDB.Entry) -> some View {
         if let p = e.photo, let url = try? Media.url(p), let img = UIImage(contentsOfFile: url.path) {
-            Image(uiImage: img).resizable().scaledToFit().listRowInsets(EdgeInsets())
+            Image(uiImage: img).resizable().scaledToFit().clipShape(.rect(cornerRadius: 10))
         }
-        Section {
-            if !e.said.isEmpty { Text("“\(e.said)”") }
-            ForEach(e.edits, id: \.self) { Text("Changed: “\($0)”").foregroundStyle(.secondary) }
-            LabeledContent("Logged", value: e.createdAt.formatted(date: .abbreviated, time: .shortened))
-            if let m = e.meal { LabeledContent("Meal", value: m) }
-            if let m = e.model { LabeledContent("Model", value: m) }
+        if !e.said.isEmpty || !e.edits.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                if !e.said.isEmpty { Text("\u{201C}\(e.said)\u{201D}") }
+                ForEach(e.edits, id: \.self) { Text("Changed: \u{201C}\($0)\u{201D}") }
+            }
+            .font(.callout).foregroundStyle(.secondary)
         }
         if let edit = e.pendingEdit {
-            Section { Label("Changing: “\(edit)”", systemImage: "pencil") }
+            Label("Changing: \u{201C}\(edit)\u{201D}", systemImage: "pencil").font(.callout)
         }
         if let err = e.error {
-            Section { Text(err).foregroundStyle(e.status == .queued || e.status == .done ? .orange : .red) }
+            Text(err).font(.callout).foregroundStyle(e.status == .queued || e.status == .done ? .orange : .red)
         }
-        if let r = e.reply, e.status == .done || e.status == .nothing { Section("Assumptions") { Text(r) } }
-        if !e.items.isEmpty {
-            Section {
-                ForEach(e.items) { it in
-                    Button { editing = it } label: { ItemRow(item: it) }.foregroundStyle(.primary)
-                }
-            } header: {
-                Text("Items")
-            } footer: {
-                Text("\(Int(e.kcal.rounded())) kcal · P \(fmt(e.total("protein_g"))) · F \(fmt(e.total("fat_g"))) · "
-                     + "C \(fmt(e.total("carb_g"))). Tap an item to change its grams or food.")
-            }
+        ForEach(e.items) { it in
+            Button { edit(it) } label: { ItemRow(item: it) }.foregroundStyle(.primary)
         }
-        Section {
-            if e.status == .done && e.pendingEdit == nil {
-                Button { changing = true } label: { Label("Change this entry", systemImage: "pencil") }
-                Button { adding = true } label: { Label("Add a food", systemImage: "plus") }
+        if e.items.count > 1 {
+            HStack {
+                Text("P \(fmt(e.total("protein_g"))) · F \(fmt(e.total("fat_g"))) · C \(fmt(e.total("carb_g")))")
+                Spacer()
+                Text("\(Int(e.kcal.rounded())) kcal").fontWeight(.semibold)
             }
-            if ![.thinking, .transcribing, .waiting].contains(e.status) {
-                Button { act { try log.redo(id); model.logger.kick() } } label: {
-                    Label(e.status == .done ? "Redo with the model" : "Try again", systemImage: "arrow.clockwise")
-                }
-            }
-            Button("Delete entry", role: .destructive) { confirmDelete = true }
-                .confirmationDialog("Delete this entry?", isPresented: $confirmDelete, titleVisibility: .visible) {
-                    Button("Delete", role: .destructive) { act { try log.deleteEntry(id); dismiss() } }
-                }
-            if let actionError { Text(actionError).foregroundStyle(.red) }
+            .font(.callout.monospacedDigit()).foregroundStyle(.secondary)
+        }
+        if let r = e.reply, e.status == .done || e.status == .nothing {
+            Text(r).font(.caption).foregroundStyle(.secondary)
         }
     }
 
@@ -114,13 +105,15 @@ struct ItemRow: View {
 }
 
 /// A change to a logged entry, said or typed ("my recipe used 30% less fat");
-/// the model re-logs the entry with it.
+/// the model re-logs the entry with it. Letting go of the mic sends the change
+/// (with anything typed before it) and closes the sheet.
 struct ChangeSheet: View {
     let id: Int64
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
     @State private var text = ""
     @State private var recorder = Recorder()
+    @State private var transcribing = false
     @State private var error: String?
 
     var body: some View {
@@ -132,7 +125,13 @@ struct ChangeSheet: View {
                 TextField("my recipe used 30% less oil · it was 90% dark chocolate · only half the rice",
                           text: $text, axis: .vertical)
                     .lineLimit(3...8)
-                Dictation(recorder: recorder, text: $text)
+                HStack(spacing: 12) {
+                    HoldToTalk(recorder: recorder, size: 34) { url in spoken(url) }
+                        .disabled(transcribing)
+                    if recorder.isRecording { RecordingBanner(recorder: recorder, hint: "release to change it") }
+                    else if transcribing { ProgressView(); Text("Transcribing…").foregroundStyle(.secondary) }
+                    else { Text("or hold to say it").font(.callout).foregroundStyle(.secondary) }
+                }
             }
             if let error { Text(error).foregroundStyle(.red) }
         }
@@ -141,17 +140,34 @@ struct ChangeSheet: View {
         .toolbar {
             ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Change it") {
-                    let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                    guard t.count >= 2 else { error = "Say or type what to change."; return }
-                    do {
-                        try model.log.requestEdit(id, t)
-                        model.logger.kick()
-                        dismiss()
-                    } catch { self.error = String(describing: error) }
-                }
+                Button("Change it") { send(text) }.disabled(transcribing)
             }
         }
+    }
+
+    private func spoken(_ url: URL) {
+        transcribing = true
+        Task {
+            defer { transcribing = false }
+            do {
+                let words = try await Transcriber.transcribe(url)
+                try? FileManager.default.removeItem(at: url)
+                let typed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                send(typed.isEmpty ? words : typed + " " + words)
+            } catch {
+                self.error = "Couldn't transcribe: \(error)"
+            }
+        }
+    }
+
+    private func send(_ raw: String) {
+        let t = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard t.count >= 2 else { error = "Say or type what to change."; return }
+        do {
+            try model.log.requestEdit(id, t)
+            model.logger.kick()
+            dismiss()
+        } catch { self.error = String(describing: error) }
     }
 }
 
