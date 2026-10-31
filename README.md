@@ -23,7 +23,7 @@ yourself (llama.cpp, Ollama, LM Studio). Your food log stays on your phone.
 There is no Bite Log server and no account. Your log, photos and recordings are
 stored on your phone. When you log something, the text or photo goes to the
 model provider you chose, under that provider's terms. API keys are kept in
-the iOS Keychain.
+the iOS Keychain. Full policy: [PRIVACY.md](PRIVACY.md).
 
 ## Building
 
