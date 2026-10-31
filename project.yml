@@ -1,0 +1,88 @@
+# Bite Log for iOS. The Xcode project is generated from this file:
+#   xcodegen
+# Edit settings here, not in Xcode's project editor: regenerating overwrites
+# BiteLog.xcodeproj (it is not checked in).
+name: BiteLog
+options:
+  bundleIdPrefix: app.bitelog
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    MARKETING_VERSION: "0.1"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: 5ZW2S867N2
+targets:
+  BiteLog:
+    type: application
+    platform: iOS
+    sources:
+      - BiteLog
+      # USDA FoodData Central (public domain), bundled read-only
+      - path: Data/fdc.db
+        buildPhase: resources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.bitelog.ios
+        PRODUCT_NAME: BiteLog
+        INFOPLIST_KEY_CFBundleDisplayName: Bite Log
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UILaunchScreen_Generation: YES
+        INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations: UIInterfaceOrientationPortrait
+        # HTTPS only (exempt), so uploads skip the export-compliance question
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        TARGETED_DEVICE_FAMILY: "1"
+        # a model server on the user's own network (plain http, e.g. llama.cpp or Ollama)
+        INFOPLIST_KEY_NSLocalNetworkUsageDescription: Bite Log connects to the model server you set up on your network.
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Bite Log records what you say you ate, while you hold the mic button.
+        INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Bite Log turns what you say into text on this phone.
+        INFOPLIST_KEY_NSCameraUsageDescription: Bite Log photographs your food and package labels.
+    info:
+      path: BiteLog/Info.plist
+      properties:
+        NSAppTransportSecurity:
+          NSAllowsLocalNetworking: true
+  BiteLogTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - BiteLogTests
+    dependencies:
+      - target: BiteLog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.bitelog.ios.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/BiteLog.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/BiteLog
+        BUNDLE_LOADER: $(TEST_HOST)
+  BiteLogUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    sources:
+      - BiteLogUITests
+    dependencies:
+      - target: BiteLog
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: app.bitelog.ios.uitests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_TARGET_NAME: BiteLog
+        SWIFT_DEFAULT_ACTOR_ISOLATION: nonisolated  # XCTestCase can't be main-actor isolated
+schemes:
+  BiteLog:
+    build:
+      targets:
+        BiteLog: all
+        BiteLogTests: [test]
+        BiteLogUITests: [test]
+    test:
+      targets:
+        - BiteLogTests
+        - BiteLogUITests

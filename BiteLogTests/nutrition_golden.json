@@ -1,0 +1,1304 @@
+{
+ "nutrition": [
+  {
+   "items": [
+    {
+     "fdc_id": 2263890,
+     "grams": 130
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 130.0,
+      "kcal": 100.3,
+      "protein_g": 1.18,
+      "fat_g": 0.21,
+      "carb_g": 26.26,
+      "fiber_g": null,
+      "sugar_g": null,
+      "sat_fat_g": null,
+      "sodium_mg": 9.1,
+      "cholesterol_mg": null
+     }
+    ],
+    "totals": {
+     "kcal": 100.3,
+     "protein_g": 1.18,
+     "fat_g": 0.21,
+     "carb_g": 26.26,
+     "sodium_mg": 9.1
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 173904,
+     "portion": "1 cup",
+     "quantity": 0.5
+    },
+    {
+     "fdc_id": 171413,
+     "portion": "1 TABLESPOON "
+    },
+    {
+     "fdc_id": 172187,
+     "portion": "1 large",
+     "quantity": 2
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 173904,
+      "description": "Cereals, oats, regular and quick, not fortified, dry",
+      "grams": 40.5,
+      "kcal": 153.5,
+      "protein_g": 5.33,
+      "fat_g": 2.64,
+      "carb_g": 27.42,
+      "fiber_g": 4.09,
+      "sugar_g": 0.4,
+      "sat_fat_g": 0.45,
+      "sodium_mg": 2.43,
+      "cholesterol_mg": 0.0
+     },
+     {
+      "fdc_id": 171413,
+      "description": "Oil, olive, salad or cooking",
+      "grams": 13.5,
+      "kcal": 119.34,
+      "protein_g": 0.0,
+      "fat_g": 13.5,
+      "carb_g": 0.0,
+      "fiber_g": 0.0,
+      "sugar_g": 0.0,
+      "sat_fat_g": 1.86,
+      "sodium_mg": 0.27,
+      "cholesterol_mg": 0.0
+     },
+     {
+      "fdc_id": 172187,
+      "description": "Egg, whole, cooked, scrambled",
+      "grams": 122.0,
+      "kcal": 181.78,
+      "protein_g": 12.19,
+      "fat_g": 13.4,
+      "carb_g": 1.96,
+      "fiber_g": 0.0,
+      "sugar_g": 1.7,
+      "sat_fat_g": 4.06,
+      "sodium_mg": 176.9,
+      "cholesterol_mg": 337.94
+     }
+    ],
+    "totals": {
+     "kcal": 454.62,
+     "protein_g": 17.52,
+     "fat_g": 29.54,
+     "carb_g": 29.38,
+     "fiber_g": 4.09,
+     "sugar_g": 2.1,
+     "sat_fat_g": 6.37,
+     "sodium_mg": 179.6,
+     "cholesterol_mg": 337.94
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 170273,
+     "grams": 30
+    },
+    {
+     "fdc_id": 2263890,
+     "grams": 77.7
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 170273,
+      "description": "Chocolate, dark, 70-85% cacao solids",
+      "grams": 30.0,
+      "kcal": 179.4,
+      "protein_g": 2.34,
+      "fat_g": 12.79,
+      "carb_g": 13.77,
+      "fiber_g": 3.27,
+      "sugar_g": 7.2,
+      "sat_fat_g": 7.35,
+      "sodium_mg": 6.0,
+      "cholesterol_mg": 0.9
+     },
+     {
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 77.7,
+      "kcal": 59.95,
+      "protein_g": 0.71,
+      "fat_g": 0.12,
+      "carb_g": 15.7,
+      "fiber_g": null,
+      "sugar_g": null,
+      "sat_fat_g": null,
+      "sodium_mg": 5.44,
+      "cholesterol_mg": null
+     }
+    ],
+    "totals": {
+     "kcal": 239.35,
+     "protein_g": 3.05,
+     "fat_g": 12.91,
+     "carb_g": 29.47,
+     "fiber_g": 3.27,
+     "sugar_g": 7.2,
+     "sat_fat_g": 7.35,
+     "sodium_mg": 11.44,
+     "cholesterol_mg": 0.9
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 171304,
+     "portion": "1 cup"
+    }
+   ],
+   "error": "fdc_id 171304 (Yogurt, Greek, plain, whole milk) has no portion '1 cup'; available: none \u2014 use grams"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 999999999,
+     "grams": 10
+    }
+   ],
+   "error": "no food with fdc_id 999999999"
+  }
+ ],
+ "lookup": [
+  {
+   "food": "grapes",
+   "grams": 130,
+   "alternatives": 8,
+   "result": {
+    "match": {
+     "fdc_id": 2709237,
+     "description": "Grapes, raw",
+     "source": "survey",
+     "grams": 130,
+     "kcal": 107.9,
+     "protein_g": 1.17,
+     "fat_g": 0.26,
+     "carb_g": 25.22,
+     "fiber_g": 1.17,
+     "sugar_g": 21.76,
+     "sat_fat_g": 0.07,
+     "sodium_mg": 6.5,
+     "cholesterol_mg": 0.0
+    },
+    "alternatives": [
+     {
+      "fdc_id": 173040,
+      "description": "Grapes, muscadine, raw",
+      "source": "sr_legacy",
+      "kcal": 74.1
+     },
+     {
+      "fdc_id": 321360,
+      "description": "Tomatoes, grape, raw",
+      "source": "foundation",
+      "kcal": 35.1
+     },
+     {
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "source": "foundation",
+      "kcal": 100.3
+     },
+     {
+      "fdc_id": 2263891,
+      "description": "Grapes, green, seedless, raw",
+      "source": "foundation",
+      "kcal": 93.5
+     },
+     {
+      "fdc_id": 2709375,
+      "description": "Baby Toddler juice, grape",
+      "source": "survey",
+      "kcal": 80.6
+     },
+     {
+      "fdc_id": 174682,
+      "description": "Grapes, american type (slip skin), raw",
+      "source": "sr_legacy",
+      "kcal": 87.1
+     },
+     {
+      "fdc_id": 174684,
+      "description": "Grapes, canned, thompson seedless, water pack, solids and liquids",
+      "source": "sr_legacy",
+      "kcal": 52.0
+     },
+     {
+      "fdc_id": 174683,
+      "description": "Grapes, red or green (European type, such as Thompson seedless), raw",
+      "source": "sr_legacy",
+      "kcal": 89.7
+     }
+    ]
+   }
+  },
+  {
+   "food": "dark chocolate",
+   "grams": 30,
+   "alternatives": 3,
+   "result": {
+    "match": {
+     "fdc_id": 170271,
+     "description": "Chocolate, dark, 45- 59% cacao solids",
+     "source": "sr_legacy",
+     "grams": 30,
+     "kcal": 163.8,
+     "protein_g": 1.46,
+     "fat_g": 9.38,
+     "carb_g": 18.35,
+     "fiber_g": 2.1,
+     "sugar_g": 14.37,
+     "sat_fat_g": 5.56,
+     "sodium_mg": 7.2,
+     "cholesterol_mg": 2.4
+    },
+    "alternatives": [
+     {
+      "fdc_id": 170272,
+      "description": "Chocolate, dark, 60-69% cacao solids",
+      "source": "sr_legacy",
+      "kcal": 173.7
+     },
+     {
+      "fdc_id": 170273,
+      "description": "Chocolate, dark, 70-85% cacao solids",
+      "source": "sr_legacy",
+      "kcal": 179.4
+     },
+     {
+      "fdc_id": 170274,
+      "description": "Candies, chocolate, dark, NFS (45-59% cacao solids 90%; 60-69% cacao solids 5%; 70-85% cacao solids 5%)",
+      "source": "sr_legacy",
+      "kcal": 165.0
+     }
+    ]
+   }
+  },
+  {
+   "food": "white miso",
+   "grams": 17,
+   "alternatives": 2,
+   "result": {
+    "match": {
+     "fdc_id": 2707439,
+     "description": "Miso",
+     "source": "survey",
+     "grams": 17,
+     "kcal": 33.66,
+     "protein_g": 2.17,
+     "fat_g": 1.02,
+     "carb_g": 4.31,
+     "fiber_g": 0.92,
+     "sugar_g": 1.05,
+     "sat_fat_g": 0.17,
+     "sodium_mg": 633.76,
+     "cholesterol_mg": 0.0
+    },
+    "alternatives": [
+     {
+      "fdc_id": 172183,
+      "description": "Egg, white, raw, fresh",
+      "source": "sr_legacy",
+      "kcal": 8.8
+     },
+     {
+      "fdc_id": 169251,
+      "description": "Mushrooms, white, raw",
+      "source": "sr_legacy",
+      "kcal": 3.7
+     }
+    ]
+   }
+  },
+  {
+   "food": "zzqx",
+   "grams": 10,
+   "alternatives": 8,
+   "error": "no food matches 'zzqx'; try fewer or different words"
+  }
+ ],
+ "all_nutrients": [
+  {
+   "fdc_id": 2263890,
+   "result": [
+    {
+     "name": "Nitrogen",
+     "amount": 0.1463,
+     "unit": "G"
+    },
+    {
+     "name": "Protein",
+     "amount": 0.914375,
+     "unit": "G"
+    },
+    {
+     "name": "Total lipid (fat)",
+     "amount": 0.1638,
+     "unit": "G"
+    },
+    {
+     "name": "Carbohydrate, by difference",
+     "amount": 20.196825,
+     "unit": "G"
+    },
+    {
+     "name": "Ash",
+     "amount": 0.535,
+     "unit": "G"
+    },
+    {
+     "name": "Glucose",
+     "amount": 8.174,
+     "unit": "G"
+    },
+    {
+     "name": "Fructose",
+     "amount": 9.167,
+     "unit": "G"
+    },
+    {
+     "name": "Water",
+     "amount": 78.19,
+     "unit": "G"
+    },
+    {
+     "name": "Sugars, Total",
+     "amount": 17.341,
+     "unit": "G"
+    },
+    {
+     "name": "Calcium, Ca",
+     "amount": 10.17,
+     "unit": "MG"
+    },
+    {
+     "name": "Iron, Fe",
+     "amount": 0.1615,
+     "unit": "MG"
+    },
+    {
+     "name": "Magnesium, Mg",
+     "amount": 8.556,
+     "unit": "MG"
+    },
+    {
+     "name": "Phosphorus, P",
+     "amount": 24.86,
+     "unit": "MG"
+    },
+    {
+     "name": "Potassium, K",
+     "amount": 229.4,
+     "unit": "MG"
+    },
+    {
+     "name": "Sodium, Na",
+     "amount": 6.999,
+     "unit": "MG"
+    },
+    {
+     "name": "Zinc, Zn",
+     "amount": 0.03603,
+     "unit": "MG"
+    },
+    {
+     "name": "Copper, Cu",
+     "amount": 0.08081,
+     "unit": "MG"
+    },
+    {
+     "name": "Manganese, Mn",
+     "amount": 0.09758,
+     "unit": "MG"
+    },
+    {
+     "name": "Vitamin C, total ascorbic acid",
+     "amount": 3.308,
+     "unit": "MG"
+    },
+    {
+     "name": "Energy (Atwater General Factors)",
+     "amount": 85.919,
+     "unit": "KCAL"
+    },
+    {
+     "name": "Energy (Atwater Specific Factors)",
+     "amount": 77.151876,
+     "unit": "KCAL"
+    }
+   ]
+  },
+  {
+   "fdc_id": 171413,
+   "result": [
+    {
+     "name": "Total lipid (fat)",
+     "amount": 100.0,
+     "unit": "G"
+    },
+    {
+     "name": "Energy",
+     "amount": 884.0,
+     "unit": "KCAL"
+    },
+    {
+     "name": "Energy",
+     "amount": 3699.0,
+     "unit": "kJ"
+    },
+    {
+     "name": "Calcium, Ca",
+     "amount": 1.0,
+     "unit": "MG"
+    },
+    {
+     "name": "Iron, Fe",
+     "amount": 0.56,
+     "unit": "MG"
+    },
+    {
+     "name": "Potassium, K",
+     "amount": 1.0,
+     "unit": "MG"
+    },
+    {
+     "name": "Sodium, Na",
+     "amount": 2.0,
+     "unit": "MG"
+    },
+    {
+     "name": "Vitamin E (alpha-tocopherol)",
+     "amount": 14.35,
+     "unit": "MG"
+    },
+    {
+     "name": "Tocopherol, beta",
+     "amount": 0.11,
+     "unit": "MG"
+    },
+    {
+     "name": "Tocopherol, gamma",
+     "amount": 0.83,
+     "unit": "MG"
+    },
+    {
+     "name": "Choline, total",
+     "amount": 0.3,
+     "unit": "MG"
+    },
+    {
+     "name": "Vitamin K (phylloquinone)",
+     "amount": 60.2,
+     "unit": "UG"
+    },
+    {
+     "name": "Betaine",
+     "amount": 0.1,
+     "unit": "MG"
+    },
+    {
+     "name": "Fatty acids, total saturated",
+     "amount": 13.808,
+     "unit": "G"
+    },
+    {
+     "name": "SFA 16:0",
+     "amount": 11.29,
+     "unit": "G"
+    },
+    {
+     "name": "SFA 18:0",
+     "amount": 1.953,
+     "unit": "G"
+    },
+    {
+     "name": "SFA 20:0",
+     "amount": 0.414,
+     "unit": "G"
+    },
+    {
+     "name": "MUFA 18:1",
+     "amount": 71.269,
+     "unit": "G"
+    },
+    {
+     "name": "PUFA 18:2",
+     "amount": 9.762,
+     "unit": "G"
+    },
+    {
+     "name": "PUFA 18:3",
+     "amount": 0.761,
+     "unit": "G"
+    },
+    {
+     "name": "SFA 22:0",
+     "amount": 0.129,
+     "unit": "G"
+    },
+    {
+     "name": "MUFA 16:1",
+     "amount": 1.255,
+     "unit": "G"
+    },
+    {
+     "name": "MUFA 20:1",
+     "amount": 0.311,
+     "unit": "G"
+    },
+    {
+     "name": "Phytosterols",
+     "amount": 221.0,
+     "unit": "MG"
+    },
+    {
+     "name": "Fatty acids, total monounsaturated",
+     "amount": 72.961,
+     "unit": "G"
+    },
+    {
+     "name": "Fatty acids, total polyunsaturated",
+     "amount": 10.523,
+     "unit": "G"
+    },
+    {
+     "name": "SFA 17:0",
+     "amount": 0.022,
+     "unit": "G"
+    },
+    {
+     "name": "MUFA 17:1",
+     "amount": 0.125,
+     "unit": "G"
+    }
+   ]
+  }
+ ],
+ "version_adjust": [
+  {
+   "fdc_id": 170273,
+   "version": {
+    "why": "90% cacao: less sugar, more fat",
+    "per_100g": {
+     "carb_g": 32.1,
+     "sugar_g": 14.0,
+     "fat_g": 50.0
+    }
+   },
+   "result": {
+    "why": "90% cacao: less sugar, more fat",
+    "per_100g": {
+     "carb_g": 32.1,
+     "sugar_g": 14.0,
+     "fat_g": 50.0
+    },
+    "carb_g": 0.6993,
+    "sugar_g": 0.5836,
+    "fat_g": 1.1729
+   }
+  },
+  {
+   "fdc_id": 171304,
+   "version": {
+    "why": "2%",
+    "per_100g": {
+     "fat_g": 2.0
+    }
+   },
+   "result": {
+    "why": "2%",
+    "per_100g": {
+     "fat_g": 2.0
+    },
+    "fat_g": 0.4
+   }
+  },
+  {
+   "fdc_id": 2263890,
+   "version": {
+    "why": "x",
+    "per_100g": {
+     "fiber_g": 1.0
+    }
+   },
+   "error": "entry 2263890 has no fiber_g to scale; pick an entry that has some, or log what adds it as its own item"
+  },
+  {
+   "fdc_id": 2263890,
+   "version": {
+    "why": "x",
+    "per_100g": {
+     "fiber_g": 0
+    }
+   },
+   "result": {
+    "why": "x",
+    "per_100g": {
+     "fiber_g": 0
+    }
+   }
+  },
+  {
+   "fdc_id": 171304,
+   "version": {
+    "why": "x",
+    "per_100g": {
+     "kcal": 50
+    }
+   },
+   "error": "version.per_100g can only give protein_g, fat_g, carb_g, sugar_g, fiber_g, sat_fat_g, sodium_mg (not kcal)"
+  },
+  {
+   "fdc_id": 171304,
+   "version": {
+    "why": "x",
+    "per_100g": {}
+   },
+   "error": "version.per_100g is empty; leave version out when the entry matches"
+  },
+  {
+   "fdc_id": 171304,
+   "version": {
+    "why": "  ",
+    "per_100g": {
+     "fat_g": 2.0
+    }
+   },
+   "error": "version needs why: the entry's numbers per 100 g and the user's version worked out"
+  },
+  {
+   "fdc_id": 171304,
+   "version": {
+    "why": "x",
+    "per_100g": {
+     "fat_g": -1
+    }
+   },
+   "error": "version.per_100g.fat_g must be a number of 0 or more"
+  },
+  {
+   "fdc_id": 999999999,
+   "version": {
+    "why": "x",
+    "per_100g": {
+     "fat_g": 1
+    }
+   },
+   "error": "no food with fdc_id 999999999"
+  }
+ ],
+ "compute": [
+  {
+   "items": [
+    {
+     "fdc_id": 171304,
+     "grams": 170,
+     "adjust": {
+      "why": "2%",
+      "per_100g": {
+       "fat_g": 2.0
+      },
+      "fat_g": 0.4
+     }
+    }
+   ],
+   "result": [
+    {
+     "fdc_id": 171304,
+     "description": "Yogurt, Greek, plain, whole milk",
+     "grams": 170.0,
+     "kcal": 119.0,
+     "protein_g": 15.3,
+     "fat_g": 3.4000000000000004,
+     "carb_g": 6.77,
+     "fiber_g": 0.0,
+     "sugar_g": 6.77,
+     "sat_fat_g": 1.6320000000000001,
+     "sodium_mg": 59.5,
+     "cholesterol_mg": 22.1
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 170273,
+     "grams": 30,
+     "adjust": {
+      "why": "x",
+      "per_100g": {},
+      "carb_g": 0.3,
+      "sugar_g": 1.2
+     }
+    }
+   ],
+   "result": [
+    {
+     "fdc_id": 170273,
+     "description": "Chocolate, dark, 70-85% cacao solids",
+     "grams": 30.0,
+     "kcal": 140.844,
+     "protein_g": 2.34,
+     "fat_g": 12.79,
+     "carb_g": 4.130999999999999,
+     "fiber_g": 3.27,
+     "sugar_g": 4.130999999999999,
+     "sat_fat_g": 7.35,
+     "sodium_mg": 6.0,
+     "cholesterol_mg": 0.9
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 2263890,
+     "grams": 100,
+     "adjust": {
+      "why": "x",
+      "per_100g": {},
+      "carb_g": 0.0,
+      "fat_g": 0.0,
+      "protein_g": 0.0
+     }
+    }
+   ],
+   "result": [
+    {
+     "fdc_id": 2263890,
+     "description": "Grapes, red, seedless, raw",
+     "grams": 100.0,
+     "kcal": 0.0,
+     "protein_g": 0.0,
+     "fat_g": 0.0,
+     "carb_g": 0.0,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": null,
+     "sodium_mg": 7.0,
+     "cholesterol_mg": null
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 172187,
+     "portion": "1 large",
+     "quantity": 2
+    },
+    {
+     "fdc_id": 170273,
+     "grams": 30,
+     "adjust": {
+      "why": "x",
+      "per_100g": {},
+      "sat_fat_g": 0.5,
+      "fat_g": 1.1
+     }
+    }
+   ],
+   "result": [
+    {
+     "fdc_id": 172187,
+     "description": "Egg, whole, cooked, scrambled",
+     "grams": 122.0,
+     "kcal": 181.78,
+     "protein_g": 12.19,
+     "fat_g": 13.4,
+     "carb_g": 1.96,
+     "fiber_g": 0.0,
+     "sugar_g": 1.7,
+     "sat_fat_g": 4.06,
+     "sodium_mg": 176.9,
+     "cholesterol_mg": 337.94
+    },
+    {
+     "fdc_id": 170273,
+     "description": "Chocolate, dark, 70-85% cacao solids",
+     "grams": 30.0,
+     "kcal": 190.91100000000003,
+     "protein_g": 2.34,
+     "fat_g": 14.069,
+     "carb_g": 13.77,
+     "fiber_g": 3.27,
+     "sugar_g": 7.2,
+     "sat_fat_g": 3.675,
+     "sodium_mg": 6.0,
+     "cholesterol_mg": 0.9
+    }
+   ]
+  }
+ ],
+ "custom": [
+  {
+   "call": "add_custom_food",
+   "args": {
+    "name": "Store-brand smoked salmon",
+    "aliases": "deli lox, lox",
+    "serving_label": "2 oz (56g)",
+    "serving_g": 56,
+    "kcal": 100,
+    "protein_g": 12,
+    "fat_g": 5,
+    "carb_g": 0,
+    "sodium_mg": 1050,
+    "sat_fat_g": 1
+   },
+   "result": {
+    "fdc_id": -1,
+    "description": "Store-brand smoked salmon",
+    "source": "custom",
+    "category": "Custom (from package label)",
+    "per_100g": {
+     "kcal": 178.57,
+     "protein_g": 21.43,
+     "fat_g": 8.93,
+     "carb_g": 0.0,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": 1.79,
+     "sodium_mg": 1875.0,
+     "cholesterol_mg": null
+    },
+    "portions": [
+     {
+      "label": "1 serving",
+      "gram_weight": 56.0
+     }
+    ]
+   }
+  },
+  {
+   "call": "add_custom_food",
+   "args": {
+    "name": "Bad label",
+    "serving_g": 30,
+    "kcal": 300,
+    "protein_g": 1,
+    "fat_g": 1,
+    "carb_g": 1
+   },
+   "error": "300 kcal doesn't fit the macros (1 g protein, 1 g fat, 1 g carb = ~17 kcal); check the label"
+  },
+  {
+   "call": "add_recipe",
+   "args": {
+    "name": "Miso soup",
+    "aliases": "miso",
+    "text": "1 tbsp miso, 150 g tofu, 350 g water",
+    "servings": 2,
+    "ingredients": [
+     {
+      "fdc_id": 172183,
+      "grams": 17,
+      "said": "1 tbsp miso"
+     },
+     {
+      "fdc_id": 2263890,
+      "grams": 150
+     }
+    ]
+   },
+   "result": {
+    "fdc_id": -2,
+    "description": "Miso soup",
+    "source": "custom",
+    "category": "Recipe (household, from its ingredients)",
+    "per_100g": {
+     "kcal": 74.59,
+     "protein_g": 1.92,
+     "fat_g": 0.16,
+     "carb_g": 18.22,
+     "fiber_g": 0.0,
+     "sugar_g": 0.07,
+     "sat_fat_g": 0.0,
+     "sodium_mg": 23.19,
+     "cholesterol_mg": 0.0
+    },
+    "portions": [
+     {
+      "label": "1 serving",
+      "gram_weight": 83.5
+     }
+    ],
+    "ingredients": [
+     {
+      "said": "1 tbsp miso",
+      "fdc_id": 172183,
+      "description": "Egg, white, raw, fresh",
+      "grams": 17.0,
+      "kcal": 8.84,
+      "protein_g": 1.85,
+      "fat_g": 0.03,
+      "carb_g": 0.12
+     },
+     {
+      "said": null,
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 150.0,
+      "kcal": 115.72,
+      "protein_g": 1.36,
+      "fat_g": 0.24,
+      "carb_g": 30.3
+     }
+    ],
+    "totals": {
+     "kcal": 124.56,
+     "protein_g": 3.21,
+     "fat_g": 0.27,
+     "carb_g": 30.42,
+     "fiber_g": 0.0,
+     "sugar_g": 0.12,
+     "sat_fat_g": 0.0,
+     "sodium_mg": 38.72,
+     "cholesterol_mg": 0.0
+    }
+   }
+  },
+  {
+   "call": "add_recipe",
+   "args": {
+    "name": "Miso soup",
+    "servings": 3,
+    "cooked_g": 400,
+    "replaces": -2,
+    "ingredients": [
+     {
+      "fdc_id": 172183,
+      "grams": 20
+     },
+     {
+      "fdc_id": 2263890,
+      "grams": 150
+     }
+    ]
+   },
+   "result": {
+    "fdc_id": -3,
+    "description": "Miso soup",
+    "source": "custom",
+    "category": "Recipe (household, from its ingredients)",
+    "per_100g": {
+     "kcal": 31.53,
+     "protein_g": 0.89,
+     "fat_g": 0.07,
+     "carb_g": 7.61,
+     "fiber_g": 0.0,
+     "sugar_g": 0.04,
+     "sat_fat_g": 0.0,
+     "sodium_mg": 10.93,
+     "cholesterol_mg": 0.0
+    },
+    "portions": [
+     {
+      "label": "1 serving",
+      "gram_weight": 133.33333333333334
+     }
+    ],
+    "ingredients": [
+     {
+      "said": null,
+      "fdc_id": 172183,
+      "description": "Egg, white, raw, fresh",
+      "grams": 20.0,
+      "kcal": 10.4,
+      "protein_g": 2.18,
+      "fat_g": 0.03,
+      "carb_g": 0.15
+     },
+     {
+      "said": null,
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 150.0,
+      "kcal": 115.72,
+      "protein_g": 1.36,
+      "fat_g": 0.24,
+      "carb_g": 30.3
+     }
+    ],
+    "totals": {
+     "kcal": 126.12,
+     "protein_g": 3.54,
+     "fat_g": 0.27,
+     "carb_g": 30.45,
+     "fiber_g": 0.0,
+     "sugar_g": 0.14,
+     "sat_fat_g": 0.0,
+     "sodium_mg": 43.7,
+     "cholesterol_mg": 0.0
+    }
+   }
+  },
+  {
+   "call": "add_recipe",
+   "args": {
+    "name": "Nope",
+    "replaces": -99,
+    "ingredients": [
+     {
+      "fdc_id": 2263890,
+      "grams": 10
+     }
+    ]
+   },
+   "error": "replaces: no custom food with fdc_id -99"
+  },
+  {
+   "call": "add_custom_food",
+   "args": {
+    "name": "Store-brand smoked salmon, farmed",
+    "aliases": "deli lox",
+    "serving_label": "2 oz (56g)",
+    "serving_g": 56,
+    "kcal": 110,
+    "protein_g": 12,
+    "fat_g": 6,
+    "carb_g": 0,
+    "sodium_mg": 980,
+    "replaces": -1
+   },
+   "result": {
+    "fdc_id": -4,
+    "description": "Store-brand smoked salmon, farmed",
+    "source": "custom",
+    "category": "Custom (from package label)",
+    "per_100g": {
+     "kcal": 196.43,
+     "protein_g": 21.43,
+     "fat_g": 10.71,
+     "carb_g": 0.0,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": null,
+     "sodium_mg": 1750.0,
+     "cholesterol_mg": null
+    },
+    "portions": [
+     {
+      "label": "1 serving",
+      "gram_weight": 56.0
+     }
+    ]
+   }
+  },
+  {
+   "call": "add_custom_food",
+   "args": {
+    "name": "Nope",
+    "serving_g": 10,
+    "kcal": 0,
+    "protein_g": 0,
+    "fat_g": 0,
+    "carb_g": 0,
+    "replaces": -99
+   },
+   "error": "replaces: no custom food with fdc_id -99"
+  },
+  {
+   "call": "list_custom_foods",
+   "args": {},
+   "result": [
+    {
+     "fdc_id": -3,
+     "kind": "recipe",
+     "description": "Miso soup",
+     "aliases": "",
+     "serving_label": "1 of 3 servings",
+     "serving_g": 133.3,
+     "recipe": {
+      "text": "",
+      "servings": 3,
+      "cooked_g": 400,
+      "ingredients": [
+       {
+        "said": null,
+        "fdc_id": 172183,
+        "description": "Egg, white, raw, fresh",
+        "grams": 20.0,
+        "kcal": 10.4,
+        "protein_g": 2.18,
+        "fat_g": 0.03,
+        "carb_g": 0.15
+       },
+       {
+        "said": null,
+        "fdc_id": 2263890,
+        "description": "Grapes, red, seedless, raw",
+        "grams": 150.0,
+        "kcal": 115.72,
+        "protein_g": 1.36,
+        "fat_g": 0.24,
+        "carb_g": 30.3
+       }
+      ]
+     },
+     "kcal": 42.04,
+     "protein_g": 1.18,
+     "fat_g": 0.09,
+     "carb_g": 10.15,
+     "fiber_g": 0.0,
+     "sugar_g": 0.05,
+     "sat_fat_g": 0.0,
+     "sodium_mg": 14.57,
+     "cholesterol_mg": 0.0
+    },
+    {
+     "fdc_id": -4,
+     "kind": "label",
+     "description": "Store-brand smoked salmon, farmed",
+     "aliases": "deli lox",
+     "serving_label": "2 oz (56g)",
+     "serving_g": 56.0,
+     "kcal": 110.0,
+     "protein_g": 12.0,
+     "fat_g": 6.0,
+     "carb_g": 0.0,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": null,
+     "sodium_mg": 980.0,
+     "cholesterol_mg": null
+    }
+   ]
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "lox"
+   },
+   "result": [
+    {
+     "fdc_id": -4,
+     "description": "Store-brand smoked salmon, farmed",
+     "source": "custom",
+     "category": "Custom (from package label)",
+     "protein_g": 21.43,
+     "fat_g": 10.71,
+     "carb_g": 0.0,
+     "kcal": 196.43
+    },
+    {
+     "fdc_id": 171985,
+     "description": "Fish, salmon, chinook, smoked, (lox), regular",
+     "source": "sr_legacy",
+     "category": "Finfish and Shellfish Products",
+     "kcal": 117.0,
+     "protein_g": 18.28,
+     "fat_g": 4.32,
+     "carb_g": 0.0
+    }
+   ]
+  },
+  {
+   "call": "remove_custom_food",
+   "args": {
+    "fdc_id": -1
+   },
+   "result": {
+    "removed": -1
+   }
+  },
+  {
+   "call": "remove_custom_food",
+   "args": {
+    "fdc_id": -1
+   },
+   "result": {
+    "removed": -1
+   }
+  },
+  {
+   "call": "list_custom_foods",
+   "args": {},
+   "result": [
+    {
+     "fdc_id": -3,
+     "kind": "recipe",
+     "description": "Miso soup",
+     "aliases": "",
+     "serving_label": "1 of 3 servings",
+     "serving_g": 133.3,
+     "recipe": {
+      "text": "",
+      "servings": 3,
+      "cooked_g": 400,
+      "ingredients": [
+       {
+        "said": null,
+        "fdc_id": 172183,
+        "description": "Egg, white, raw, fresh",
+        "grams": 20.0,
+        "kcal": 10.4,
+        "protein_g": 2.18,
+        "fat_g": 0.03,
+        "carb_g": 0.15
+       },
+       {
+        "said": null,
+        "fdc_id": 2263890,
+        "description": "Grapes, red, seedless, raw",
+        "grams": 150.0,
+        "kcal": 115.72,
+        "protein_g": 1.36,
+        "fat_g": 0.24,
+        "carb_g": 30.3
+       }
+      ]
+     },
+     "kcal": 42.04,
+     "protein_g": 1.18,
+     "fat_g": 0.09,
+     "carb_g": 10.15,
+     "fiber_g": 0.0,
+     "sugar_g": 0.05,
+     "sat_fat_g": 0.0,
+     "sodium_mg": 14.57,
+     "cholesterol_mg": 0.0
+    },
+    {
+     "fdc_id": -4,
+     "kind": "label",
+     "description": "Store-brand smoked salmon, farmed",
+     "aliases": "deli lox",
+     "serving_label": "2 oz (56g)",
+     "serving_g": 56.0,
+     "kcal": 110.0,
+     "protein_g": 12.0,
+     "fat_g": 6.0,
+     "carb_g": 0.0,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": null,
+     "sodium_mg": 980.0,
+     "cholesterol_mg": null
+    }
+   ]
+  }
+ ]
+}

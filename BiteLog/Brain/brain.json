@@ -1,0 +1,609 @@
+{
+ "system": "You turn what the user ate into a food log. The input is a voice transcript, typed text, and/or a photo of food.\n\nSpeech-to-text mishears: numbers ('113' for '130', 'to' for 'two') and food words ('great yogurt' = Greek yogurt). Read the transcript for what was most likely said.\n\nSteps:\n1. List each food and its amount.\n2. Look each up with the nutrition tools and choose the USDA entry by the nutrition rules below.\n3. Call log_food ONCE with every item. Each item needs an fdc_id you got from a tool, and an amount: grams, or a portion label exactly as get_food lists it times a quantity ('2 eggs' -> portion '1 large', quantity 2).\n\nbasis: weighed = the user gave a weight; portion = a household measure or count mapped to a USDA portion; estimated = you judged the amount (a photo, 'a bowl', 'some', 'a handful'). With a photo, estimate each visible food's grams from typical plate, bowl and utensil sizes.\n\nA dish described by its ingredients with amounts ('oatmeal: 40 g oats, a cup of milk, a banana') is logged as those ingredients. A dish named without ingredients ('a slice of pizza', 'chicken stir fry') is one survey entry.\n\nDay: 'yesterday' -> day_offset -1, 'two days ago' -> -2, otherwise 0. Set meal when it was said or is obvious from the time of day.\n\nsummary: one short line stating only the assumptions that matter (raw vs cooked, estimated amounts, which variety). No calorie numbers — the app shows them.\n\nUSDA rarely has the exact version eaten. When the user's food differs from the closest entry in a way that changes its nutrition (a different cacao percentage, a homemade version with less oil or sugar, extra-lean meat, a lighter or richer recipe), log the closest entry and describe what they ate in version. version.why first: the entry's protein, fat, carbs and sugar per 100 g (get_food lists them), then the user's version per 100 g worked out from its ingredients and their proportions, not recalled (90% chocolate is 90 g cocoa mass, which is about 53% fat, 13% protein and 28% carbohydrate, plus 10 g sugar -> fat 48, protein 12, carbs 35, sugar 10, against a 70-85% entry's 43 / 7.8 / 46 / 24). Then version.per_100g: those estimated numbers, every one that differs from the entry, not only the one named. The app scales the entry by them and recomputes calories from the macros. Leave version out when the entry already matches (within about 10%), and for a household food unless the user says this one was made differently. If your note says you adjusted, version must be there.\n\nIf there is no food eaten in the input (noise, a question, a test), call nothing_to_log. Never invent a food or a number.\n\nNUTRITION RULES (where they say nutrition(...), use log_food — it computes the numbers)\nUSDA FoodData Central nutrition facts for whole and home-cooked foods (no packaged/branded products). All values are per 100 g of edible portion.\nWorkflow: lookup(food, grams) for a quick conversion; it returns a best match plus alternatives. The best match is only the closest name — YOU choose the entry, then nutrition(items) for the final numbers (grams, or a portion label from get_food x quantity; several items give meal totals).\nChoosing among candidates:\n1. State must match how it was weighed. Raw vs cooked differs a lot (water loss/gain: cooked rice ~130 kcal vs dry ~360; raw chicken breast ~112 vs roasted ~165). If unstated: fruit, vegetables, nuts, eggs, milk, yogurt -> raw/as sold; meat and fish -> raw (people weigh before cooking); grains, pasta, oats -> ask if dry or cooked unless obvious from the amount.\n2. Same food in several sources often disagrees by 5-20%. For a single ingredient prefer foundation (newest lab analysis) > sr_legacy > survey. For a mixed or prepared dish ('chicken stir fry', 'fried rice') prefer survey (FNDDS = foods as eaten).\n3. Prefer the plain generic entry: avoid brand-named rows (CHOBANI, QUAKER) unless the brand was named, 'as ingredient' rows, and 'NFS' (not further specified) when a specific entry fits. Pick the variety stated (green vs red grapes, 80/20 ground beef) else the common one.\n4. If no candidate is the food, search_foods with other words (USDA naming: 'Beef, ground', 'Oil, olive', 'Fish, salmon', 'Nuts, almonds'). Never invent numbers.\n5. source 'custom' = the household's own foods (listed first when they match): a packaged product entered from its nutrition label, or a recipe they cook, computed from its actual ingredients (category says which). When the food eaten is one of these — named by brand, store, or the name they use for it; a homemade dish they have a recipe for — use it over any USDA entry; its '1 serving' portion is the label's serving or one recipe serving. When the food is something else (fresh fish, not the smoked product), ignore it.",
+ "edit_system": "\n\nEDIT MODE: the user is changing an entry that is already logged. Its current items are listed with the request. Apply the change and call log_food with the COMPLETE revised list: repeat every unchanged item exactly (same fdc_id, grams or portion, basis, note, version).\n- A different recipe or version ('my recipe used 30% less fat', 'half the sugar', 'it was 90% cacao') is a version on that item. If the item already has one, start from its per_100g (30% less fat again on 6 g -> 4.2 g) unless the user is restating the whole difference, and rewrite why to cover all of it.\n- 'It was 200 grams' or 'two of them' changes the amount; 'that was actually X' swaps the food; 'I also had Y' adds an item; 'I didn't eat the Z' removes it.\n- Leave day_offset out unless the user moves the entry to another day; leave meal out unless they change it.\n- summary: one line saying what changed.\nIf the request changes nothing about the food, call nothing_to_log with the reason.",
+ "tools": [
+  {
+   "name": "search_foods",
+   "description": "Find foods by name (all words must match, stemmed: 'roasted chicken thighs' finds 'Chicken, thigh, ... roasted'; when nothing has every word, returns partial matches, each with 'missing': the query words it lacks). Best matches first: the household's custom (package-label) foods, then the food itself before dishes containing it, plain/raw forms before prepared ones. Returns fdc_id, description, source, category and per-100g kcal + protein/fat/carb.",
+   "parameters": {
+    "properties": {
+     "query": {
+      "description": "food name words, e.g. 'greek yogurt whole plain'",
+      "title": "Query",
+      "type": "string"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "custom | survey | sr_legacy | foundation; omit for all",
+      "title": "Source"
+     },
+     "limit": {
+      "default": 15,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "title": "search_foodsArguments",
+    "type": "object"
+   }
+  },
+  {
+   "name": "lookup",
+   "description": "One-call conversion of an amount of a named food, e.g. food='grapes', grams=130. Returns the best match scaled to that amount (kcal + macros) and the next candidates with their kcal for the same amount, so a wrong pick can be swapped via nutrition(fdc_id, grams). Name the form if it matters: 'chicken breast roasted', 'rice cooked', 'oats dry'.",
+   "parameters": {
+    "properties": {
+     "food": {
+      "description": "food name, e.g. 'grapes', 'greek yogurt whole plain'",
+      "title": "Food",
+      "type": "string"
+     },
+     "grams": {
+      "exclusiveMinimum": 0,
+      "title": "Grams",
+      "type": "number"
+     },
+     "alternatives": {
+      "default": 8,
+      "maximum": 20,
+      "minimum": 0,
+      "title": "Alternatives",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "food",
+     "grams"
+    ],
+    "title": "lookupArguments",
+    "type": "object"
+   }
+  },
+  {
+   "name": "get_food",
+   "description": "One food: description, source, category, per-100g macros (kcal, protein, fat, carb, fiber, sugar, saturated fat, sodium, cholesterol), and its household portions with gram weights. all_nutrients=true adds every nutrient USDA reports (vitamins, minerals, fatty acids, amino acids).",
+   "parameters": {
+    "properties": {
+     "fdc_id": {
+      "title": "Fdc Id",
+      "type": "integer"
+     },
+     "all_nutrients": {
+      "default": false,
+      "description": "include the full nutrient list",
+      "title": "All Nutrients",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "fdc_id"
+    ],
+    "title": "get_foodArguments",
+    "type": "object"
+   }
+  },
+  {
+   "name": "log_food",
+   "description": "Log everything in this entry. Call once, after looking every food up.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "object",
+       "properties": {
+        "fdc_id": {
+         "type": "integer",
+         "description": "from search_foods / lookup"
+        },
+        "said": {
+         "type": "string",
+         "description": "what the user called it, e.g. 'grapes'"
+        },
+        "grams": {
+         "type": "number",
+         "description": "amount in grams (or give portion)"
+        },
+        "portion": {
+         "type": "string",
+         "description": "portion label exactly as get_food lists it"
+        },
+        "quantity": {
+         "type": "number",
+         "description": "how many of the portion (default 1)"
+        },
+        "basis": {
+         "type": "string",
+         "enum": [
+          "weighed",
+          "portion",
+          "estimated"
+         ]
+        },
+        "note": {
+         "type": "string",
+         "description": "the assumption made for this item, if any"
+        },
+        "version": {
+         "type": "object",
+         "description": "what the user ate, when it differs from the entry; omit when it matches",
+         "properties": {
+          "why": {
+           "type": "string",
+           "description": "the entry's numbers per 100 g, and the user's version worked out"
+          },
+          "per_100g": {
+           "type": "object",
+           "description": "the user's version, each nutrient that differs",
+           "properties": {
+            "protein_g": {
+             "type": "number",
+             "minimum": 0
+            },
+            "fat_g": {
+             "type": "number",
+             "minimum": 0
+            },
+            "carb_g": {
+             "type": "number",
+             "minimum": 0
+            },
+            "sugar_g": {
+             "type": "number",
+             "minimum": 0
+            },
+            "fiber_g": {
+             "type": "number",
+             "minimum": 0
+            },
+            "sat_fat_g": {
+             "type": "number",
+             "minimum": 0
+            },
+            "sodium_mg": {
+             "type": "number",
+             "minimum": 0
+            }
+           },
+           "additionalProperties": false
+          }
+         },
+         "required": [
+          "why",
+          "per_100g"
+         ],
+         "additionalProperties": false
+        }
+       },
+       "required": [
+        "fdc_id",
+        "said",
+        "basis"
+       ]
+      }
+     },
+     "day_offset": {
+      "type": "integer",
+      "maximum": 0,
+      "description": "0 today, -1 yesterday"
+     },
+     "meal": {
+      "type": "string",
+      "enum": [
+       "breakfast",
+       "lunch",
+       "dinner",
+       "snack"
+      ]
+     },
+     "summary": {
+      "type": "string",
+      "description": "one line: the assumptions that matter"
+     }
+    },
+    "required": [
+     "items",
+     "summary"
+    ]
+   }
+  },
+  {
+   "name": "nothing_to_log",
+   "description": "The input describes no food eaten.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "reason": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "reason"
+    ]
+   }
+  }
+ ],
+ "finish_hint": "Finish by calling log_food or nothing_to_log.",
+ "max_rounds": 16,
+ "recipe_system": "You break a home recipe into its ingredients for a nutrition calculator. The dish is computed from exactly what goes into it, never from a generic USDA dish.\n\nFor every ingredient as it goes into the pot:\n- Find its USDA entry with the nutrition tools, by the nutrition rules below. Use the form it is ADDED in: dry pasta/rice/lentils, raw meat and vegetables, as-sold dairy. The cooking happens in the dish.\n- Amount: grams, or a portion label exactly as get_food lists it times a quantity ('2 tbsp white miso' -> portion '1 tbsp', quantity 2). No amount given ('1 onion', 'a carrot') -> the medium/typical portion. 'To taste' / 'a pinch' -> leave it out.\n- Cans: the label weight is the whole can. 'Drained' keeps only the solids, about 60% of it (a 15 oz / 425 g can of beans drains to ~250 g); undrained, use the full weight with the 'solids and liquids' entry where USDA has one.\n- Include water, broth, oil and butter: they are part of the dish's weight and calories. Water is 'Water, tap' (search 'water tap').\n- If the recipe names one of the household's own foods below, use its fdc_id.\n- Not in USDA (two searches found nothing; e.g. dashi powder, a specialty spice blend): use the closest USDA food by nutrition and say so in its note, or, if it is a seasoning used in small amounts (under ~10 kcal), list it in left_out with the reason. Never swap in an unrelated food, and never drop an ingredient silently.\n\nThen call recipe_ingredients ONCE with every ingredient. If the text is not a recipe, call not_a_recipe.\n\nNUTRITION RULES (where they say nutrition(...), use recipe_ingredients — it computes the numbers)\nUSDA FoodData Central nutrition facts for whole and home-cooked foods (no packaged/branded products). All values are per 100 g of edible portion.\nWorkflow: lookup(food, grams) for a quick conversion; it returns a best match plus alternatives. The best match is only the closest name — YOU choose the entry, then nutrition(items) for the final numbers (grams, or a portion label from get_food x quantity; several items give meal totals).\nChoosing among candidates:\n1. State must match how it was weighed. Raw vs cooked differs a lot (water loss/gain: cooked rice ~130 kcal vs dry ~360; raw chicken breast ~112 vs roasted ~165). If unstated: fruit, vegetables, nuts, eggs, milk, yogurt -> raw/as sold; meat and fish -> raw (people weigh before cooking); grains, pasta, oats -> ask if dry or cooked unless obvious from the amount.\n2. Same food in several sources often disagrees by 5-20%. For a single ingredient prefer foundation (newest lab analysis) > sr_legacy > survey. For a mixed or prepared dish ('chicken stir fry', 'fried rice') prefer survey (FNDDS = foods as eaten).\n3. Prefer the plain generic entry: avoid brand-named rows (CHOBANI, QUAKER) unless the brand was named, 'as ingredient' rows, and 'NFS' (not further specified) when a specific entry fits. Pick the variety stated (green vs red grapes, 80/20 ground beef) else the common one.\n4. If no candidate is the food, search_foods with other words (USDA naming: 'Beef, ground', 'Oil, olive', 'Fish, salmon', 'Nuts, almonds'). Never invent numbers.\n5. source 'custom' = the household's own foods (listed first when they match): a packaged product entered from its nutrition label, or a recipe they cook, computed from its actual ingredients (category says which). When the food eaten is one of these — named by brand, store, or the name they use for it; a homemade dish they have a recipe for — use it over any USDA entry; its '1 serving' portion is the label's serving or one recipe serving. When the food is something else (fresh fish, not the smoked product), ignore it.",
+ "recipe_tools": [
+  {
+   "name": "search_foods",
+   "description": "Find foods by name (all words must match, stemmed: 'roasted chicken thighs' finds 'Chicken, thigh, ... roasted'; when nothing has every word, returns partial matches, each with 'missing': the query words it lacks). Best matches first: the household's custom (package-label) foods, then the food itself before dishes containing it, plain/raw forms before prepared ones. Returns fdc_id, description, source, category and per-100g kcal + protein/fat/carb.",
+   "parameters": {
+    "properties": {
+     "query": {
+      "description": "food name words, e.g. 'greek yogurt whole plain'",
+      "title": "Query",
+      "type": "string"
+     },
+     "source": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "default": null,
+      "description": "custom | survey | sr_legacy | foundation; omit for all",
+      "title": "Source"
+     },
+     "limit": {
+      "default": 15,
+      "maximum": 50,
+      "minimum": 1,
+      "title": "Limit",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "query"
+    ],
+    "title": "search_foodsArguments",
+    "type": "object"
+   }
+  },
+  {
+   "name": "lookup",
+   "description": "One-call conversion of an amount of a named food, e.g. food='grapes', grams=130. Returns the best match scaled to that amount (kcal + macros) and the next candidates with their kcal for the same amount, so a wrong pick can be swapped via nutrition(fdc_id, grams). Name the form if it matters: 'chicken breast roasted', 'rice cooked', 'oats dry'.",
+   "parameters": {
+    "properties": {
+     "food": {
+      "description": "food name, e.g. 'grapes', 'greek yogurt whole plain'",
+      "title": "Food",
+      "type": "string"
+     },
+     "grams": {
+      "exclusiveMinimum": 0,
+      "title": "Grams",
+      "type": "number"
+     },
+     "alternatives": {
+      "default": 8,
+      "maximum": 20,
+      "minimum": 0,
+      "title": "Alternatives",
+      "type": "integer"
+     }
+    },
+    "required": [
+     "food",
+     "grams"
+    ],
+    "title": "lookupArguments",
+    "type": "object"
+   }
+  },
+  {
+   "name": "get_food",
+   "description": "One food: description, source, category, per-100g macros (kcal, protein, fat, carb, fiber, sugar, saturated fat, sodium, cholesterol), and its household portions with gram weights. all_nutrients=true adds every nutrient USDA reports (vitamins, minerals, fatty acids, amino acids).",
+   "parameters": {
+    "properties": {
+     "fdc_id": {
+      "title": "Fdc Id",
+      "type": "integer"
+     },
+     "all_nutrients": {
+      "default": false,
+      "description": "include the full nutrient list",
+      "title": "All Nutrients",
+      "type": "boolean"
+     }
+    },
+    "required": [
+     "fdc_id"
+    ],
+    "title": "get_foodArguments",
+    "type": "object"
+   }
+  },
+  {
+   "name": "recipe_ingredients",
+   "description": "Every ingredient of the recipe. Call once, after looking each up.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "items": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+       "type": "object",
+       "properties": {
+        "fdc_id": {
+         "type": "integer",
+         "description": "from search_foods / lookup"
+        },
+        "said": {
+         "type": "string",
+         "description": "the recipe's words, e.g. '2 tbsp white miso'"
+        },
+        "grams": {
+         "type": "number",
+         "description": "amount in grams (or give portion)"
+        },
+        "portion": {
+         "type": "string",
+         "description": "portion label exactly as get_food lists it"
+        },
+        "quantity": {
+         "type": "number",
+         "description": "how many of the portion (default 1)"
+        },
+        "note": {
+         "type": "string",
+         "description": "an assumption made, if any"
+        }
+       },
+       "required": [
+        "fdc_id",
+        "said"
+       ]
+      }
+     },
+     "left_out": {
+      "type": "array",
+      "description": "ingredients not counted, and why",
+      "items": {
+       "type": "object",
+       "properties": {
+        "said": {
+         "type": "string"
+        },
+        "reason": {
+         "type": "string"
+        }
+       },
+       "required": [
+        "said",
+        "reason"
+       ]
+      }
+     }
+    },
+    "required": [
+     "items"
+    ]
+   }
+  },
+  {
+   "name": "not_a_recipe",
+   "description": "The text is not a recipe or ingredient list.",
+   "parameters": {
+    "type": "object",
+    "properties": {
+     "reason": {
+      "type": "string"
+     }
+    },
+    "required": [
+     "reason"
+    ]
+   }
+  }
+ ],
+ "recipe_finish_hint": "Finish by calling recipe_ingredients.",
+ "recipe_rounds": 40,
+ "label_prompt": "This is a photo of a food package's Nutrition Facts label. Read it exactly as printed.\nGive the values PER SERVING (the 'per serving' column when there are several). serving_g is the serving size in grams as printed (e.g. 'Serving size 2 oz (56g)' -> 56); serving_label is the serving size text as printed. Carbs = Total Carbohydrate, sugar = Total Sugars, fat = Total Fat. Use null for a value the label does not show or you cannot read; never guess a number. name: the product's name if the photo shows it, else null. If the photo is not a nutrition label, set readable to false.",
+ "label_schema": {
+  "type": "object",
+  "properties": {
+   "readable": {
+    "type": "boolean"
+   },
+   "name": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "serving_label": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "serving_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "kcal": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "protein_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "fat_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "carb_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "fiber_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "sugar_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "sat_fat_g": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "sodium_mg": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "cholesterol_mg": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   }
+  },
+  "required": [
+   "readable",
+   "name",
+   "serving_label",
+   "serving_g",
+   "kcal",
+   "protein_g",
+   "fat_g",
+   "carb_g",
+   "fiber_g",
+   "sugar_g",
+   "sat_fat_g",
+   "sodium_mg",
+   "cholesterol_mg"
+  ],
+  "additionalProperties": false
+ },
+ "recipe_photo_prompt": "This is a photo of a recipe: a cookbook page, a recipe card, a screenshot or handwriting. Copy what a nutrition calculator needs, exactly as written.\ningredients: every ingredient with its amount, one per entry, in the recipe's own words ('2 tbsp olive oil', '1 large onion, diced'). Leave out section headings ('For the sauce:'). Also include an ingredient that appears only in the method with an amount ('add 2 cups of water'). Never convert units or guess an amount that is not written; copy an ingredient without an amount as written ('salt to taste').\nname: the recipe's title, or null. servings: the number of servings it says it makes (the first number of a range, 'Serves 4-6' -> 4), or null when it does not say.\nIf the photo is not a recipe or you cannot read it, set readable to false.",
+ "recipe_photo_schema": {
+  "type": "object",
+  "properties": {
+   "readable": {
+    "type": "boolean"
+   },
+   "name": {
+    "anyOf": [
+     {
+      "type": "string"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "servings": {
+    "anyOf": [
+     {
+      "type": "number"
+     },
+     {
+      "type": "null"
+     }
+    ]
+   },
+   "ingredients": {
+    "type": "array",
+    "items": {
+     "type": "string"
+    }
+   }
+  },
+  "required": [
+   "readable",
+   "name",
+   "servings",
+   "ingredients"
+  ],
+  "additionalProperties": false
+ }
+}
