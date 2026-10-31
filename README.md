@@ -73,6 +73,14 @@ to a model server's URL (see the test files).
 `Data/fdc.db` is built from [USDA FoodData Central](https://fdc.nal.usda.gov/)
 (Foundation, SR Legacy and Survey foods), which is in the public domain.
 
+## Disclaimer
+
+Bite Log is not a medical device and does not give medical or nutrition
+advice; its author is not a health professional. Its numbers are estimates
+from the USDA database and an AI model, and can be wrong. Don't use it for
+medical decisions such as dosing insulin or managing allergies. See
+[TERMS.md](TERMS.md).
+
 ## License
 
 MIT. See [LICENSE](LICENSE).

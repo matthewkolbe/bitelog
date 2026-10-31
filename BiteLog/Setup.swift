@@ -45,8 +45,15 @@ struct IntroView<Action: View>: View {
                       "Your log, photos and recordings stay on this phone and in your own backups, and speech "
                       + "becomes text here too. Only what you log goes to your provider. Your key stays in this "
                       + "iPhone's Keychain. Nothing is sent to us.")
-                Link("Privacy policy", destination: URL(string: "https://github.com/matthewkolbe/bitelog/blob/main/PRIVACY.md")!)
-                    .font(.callout)
+                Text("Bite Log's numbers are estimates and can be wrong. It isn't medical or nutrition advice, "
+                     + "and isn't for medical decisions like dosing insulin or managing allergies. "
+                     + "Talk to a doctor or dietitian about your health.")
+                    .font(.footnote).foregroundStyle(.secondary)
+                HStack(spacing: 20) {
+                    Link("Privacy policy", destination: URL(string: "https://github.com/matthewkolbe/bitelog/blob/main/PRIVACY.md")!)
+                    Link("Terms of use", destination: URL(string: "https://github.com/matthewkolbe/bitelog/blob/main/TERMS.md")!)
+                }
+                .font(.callout)
             }
             .padding(.horizontal, 24).padding(.bottom, 16)
         }
