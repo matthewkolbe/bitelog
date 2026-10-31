@@ -1,35 +1,34 @@
 import XCTest
 
-/// Taps through the model settings. Set TEST_RUNNER_BITELOG_SHOTS=<dir> to save
-/// screenshots there; TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 also runs
-/// "Test connection" against that server.
+/// First-run setup, then logging with the connected model. Set
+/// TEST_RUNNER_BITELOG_SHOTS=<dir> to save screenshots there;
+/// TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 connects to that server and
+/// goes on to log an entry, change it, and build a recipe.
 final class SettingsUITests: XCTestCase {
     let env = ProcessInfo.processInfo.environment
 
     @MainActor
-    func testAddAModelAndTestIt() throws {
+    func testSetupThenLog() throws {
         let app = XCUIApplication()
         app.launchArguments = ["-uitest"]
         app.launch()
-        app.tabBars.buttons["Settings"].tap()
-        shot(app, "1-empty")
+        // no model yet: setup is the only screen
+        let intro = app.staticTexts.containing(NSPredicate(format: "label CONTAINS 'Connect one to start'")).firstMatch
+        XCTAssertTrue(intro.waitForExistence(timeout: 10))
+        XCTAssertFalse(app.tabBars.buttons["Today"].exists)
+        shot(app, "1-setup")
 
-        app.buttons["Add a model"].tap()
-        // a menu item's label is "title, subtitle"
+        // a navigation row's label is "title, subtitle"
         let qwen = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Qwen on your own server'")).firstMatch
         if let dir = env["BITELOG_SHOTS"], !qwen.waitForExistence(timeout: 5) {
             try? app.debugDescription.write(toFile: dir + "/tree.txt", atomically: true, encoding: .utf8)
         }
-        XCTAssertTrue(qwen.exists)
-        shot(app, "2-presets")
         qwen.tap()
-        XCTAssertTrue(app.staticTexts["My Qwen"].waitForExistence(timeout: 5))
-        shot(app, "3-list")
-
-        app.staticTexts["My Qwen"].tap()
         let address = app.textFields["Server address"]
         XCTAssertTrue(address.waitForExistence(timeout: 5))
-        shot(app, "4-editor")
+        let connect = app.buttons["Connect"]
+        XCTAssertFalse(connect.isEnabled, "Connect needs a model id first")
+        shot(app, "2-connect")
 
         guard let live = env["BITELOG_LIVE"] else { return }
         address.tap()
@@ -39,12 +38,9 @@ final class SettingsUITests: XCTestCase {
         let model = app.textFields["Model id"]
         model.tap()
         model.typeText((env["BITELOG_MODEL"] ?? "qwen38") + "\n")
-        let test = app.buttons["Test connection"]
-        for _ in 0..<6 where !test.isHittable { app.swipeUp() }
-        test.tap()
-        let answered = app.staticTexts.containing(NSPredicate(format: "label BEGINSWITH 'Answered'")).firstMatch
-        XCTAssertTrue(answered.waitForExistence(timeout: 120), "no answer from \(live)")
-        shot(app, "5-tested")
+        connect.tap()
+        XCTAssertTrue(app.tabBars.buttons["Today"].waitForExistence(timeout: 120), "never connected to \(live)")
+        shot(app, "3-connected")
 
         // log an entry with that model
         app.tabBars.buttons["Today"].tap()
@@ -79,7 +75,7 @@ final class SettingsUITests: XCTestCase {
         // a recipe, broken down by the model
         app.tabBars.buttons["Settings"].tap()
         let foods = app.buttons["My foods and recipes"]
-        if !foods.waitForExistence(timeout: 2) { app.navigationBars.buttons.element(boundBy: 0).tap() }  // still in the model editor
+        XCTAssertTrue(foods.waitForExistence(timeout: 5))
         foods.tap()
         app.buttons["Add a recipe"].tap()
         let name = app.textFields["Name, e.g. My miso soup"]

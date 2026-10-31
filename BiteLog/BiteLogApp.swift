@@ -59,6 +59,8 @@ struct ContentView: View {
         case .failure(let e):
             ContentUnavailableView("Bite Log didn't start", systemImage: "exclamationmark.triangle",
                                    description: Text(String(describing: e)))
+        case .success(let m) where m.profiles.profiles.isEmpty:
+            SetupView(store: m.profiles, client: m.client)
         case .success(let m):
             TabView {
                 Tab("Today", systemImage: "fork.knife") {

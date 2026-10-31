@@ -32,10 +32,6 @@ struct SettingsView: View {
             }
 
             Section {
-                if store.profiles.isEmpty {
-                    Text("No model yet. Add one to log food: a Claude API key, or a model you run yourself.")
-                        .foregroundStyle(.secondary)
-                }
                 ForEach(store.profiles) { p in
                     NavigationLink(value: p.id) { row(p) }
                 }
@@ -64,7 +60,7 @@ struct SettingsView: View {
                 Text("Models")
             } footer: {
                 Text("Each entry uses the first model here that's switched on and answers, top to bottom. "
-                     + "Drag to reorder. Keys stay on this phone.")
+                     + "Drag to reorder. Keys stay on this phone. Removing the last one returns to setup.")
             }
 
             Section {
