@@ -112,7 +112,7 @@
         },
         "said": {
          "type": "string",
-         "description": "what the user called it, e.g. 'grapes'"
+         "description": "the food's name as shown in the log: the user's words with speech-to-text mistakes fixed, e.g. 'smoked salmon lox' when the transcript says 'smoked salmon locks', 'Greek yogurt' for 'great yogurt'"
         },
         "grams": {
          "type": "number",

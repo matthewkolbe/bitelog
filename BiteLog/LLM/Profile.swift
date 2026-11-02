@@ -57,20 +57,36 @@ nonisolated struct Preset: Identifiable, Sendable {
     let title: String
     let detail: String
     let profile: Profile
+    /// How to get it working, step by step.
+    var guide: Guide? = nil
     var id: String { title }
 
     static let all: [Preset] = [
+        Preset(title: "OpenRouter (free Gemma)", detail: "Free key from openrouter.ai, about 10 entries a day",
+               profile: Profile(name: "OpenRouter Gemma", kind: .openAI, baseURL: "https://openrouter.ai/api/v1",
+                                model: "google/gemma-4-31b-it:free", vision: true,
+                                limits: .init(requestsPerMinute: 20)),
+               guide: .openRouter),
         Preset(title: "Anthropic (Claude)", detail: "Needs an API key from console.anthropic.com",
                profile: Profile(name: "Claude Haiku", kind: .anthropic, baseURL: "https://api.anthropic.com/v1",
                                 model: "claude-haiku-5-5", vision: true,
-                                limits: .init(requestsPerMinute: 30, tokensPerDay: 2_000_000))),
-        Preset(title: "Qwen on your own server", detail: "llama.cpp or a gateway in front of it, on your network",
-               profile: Profile(name: "My Qwen", kind: .openAI, baseURL: "http://my-computer.local:8080/v1",
+                                limits: .init(requestsPerMinute: 30, tokensPerDay: 2_000_000)),
+               guide: .claude),
+        Preset(title: "OpenAI (GPT)", detail: "Needs an API key from platform.openai.com",
+               profile: Profile(name: "GPT Luna", kind: .openAI, baseURL: "https://api.openai.com/v1",
+                                model: "gpt-6-luna", vision: true,
+                                limits: .init(requestsPerMinute: 30, tokensPerDay: 2_000_000),
+                                // Chat Completions allows tool calls on Luna only without reasoning
+                                extra: ["reasoning_effort": "none"]),
+               guide: .openAI),
+        Preset(title: "Your own computer", detail: "Gemma on a Mac or PC on your Wi-Fi (llama.cpp, LM Studio)",
+               profile: Profile(name: "My computer", kind: .openAI, baseURL: "http://my-mac.local:8080/v1",
                                 model: "", vision: true,
-                                // Qwen's settings for precise work, thinking off
-                                extra: ["temperature": 0.6, "top_p": 0.95, "top_k": 20,
-                                        "chat_template_kwargs": ["enable_thinking": false]])),
-        Preset(title: "Other OpenAI-compatible", detail: "OpenAI, OpenRouter, Ollama, LM Studio, …",
+                                // Google's sampling for Gemma, thinking off
+                                extra: ["temperature": 1.0, "top_p": 0.95, "top_k": 64,
+                                        "chat_template_kwargs": ["enable_thinking": false]]),
+               guide: .ownComputer),
+        Preset(title: "Other OpenAI-compatible", detail: "Other OpenRouter models, Groq, Ollama, LM Studio, …",
                profile: Profile(name: "Model", kind: .openAI, baseURL: "https://", model: "", vision: false)),
     ]
 }

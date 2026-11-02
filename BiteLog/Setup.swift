@@ -94,8 +94,14 @@ struct ModelChoice: View {
                     }
                 }
             } footer: {
-                Text("A Claude API key is the quickest: make one at console.anthropic.com. "
-                     + "You can add more models later in Settings, and the app uses the first one that answers.")
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Which to pick").font(.footnote.bold())
+                    // single literals: only a literal's **bold** renders as Markdown
+                    Text("**OpenRouter** has free models with a free key, limited to about 10 entries a day. Free models' hosts may keep or train on what you send.")
+                    Text("**Claude or OpenAI** costs a few cents a day with an API key, and their API terms say they don't train on it. Set a spend limit.")
+                    Text("**Your own computer** is the most private: nothing you log leaves your home, and it's free. Needs a Mac or PC with 16 GB or more.")
+                    Text("Each one has a step-by-step guide. You can add more later in Settings: each entry uses the first one that answers.")
+                }
             }
         }
         .navigationTitle("Connect a model")
@@ -115,10 +121,12 @@ struct ConnectView: View {
     @State private var connecting = false
     @State private var failure: String?
     @State private var connected = false
+    private let guide: Guide?
 
     init(preset: Preset, store: ProfileStore, client: LLMClient) {
         self.store = store
         self.client = client
+        guide = preset.guide
         var p = preset.profile
         p.id = UUID()
         _profile = State(initialValue: p)
@@ -128,6 +136,13 @@ struct ConnectView: View {
 
     var body: some View {
         Form {
+            if let guide {
+                Section {
+                    NavigationLink { GuideView(guide: guide) } label: {
+                        Label("Step-by-step guide", systemImage: "list.number")
+                    }
+                }
+            }
             Section {
                 if !anthropic {
                     TextField("Server address", text: $profile.baseURL)

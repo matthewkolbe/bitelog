@@ -1,6 +1,6 @@
 # Bite Log Privacy Policy
 
-*Last updated: October 31, 2026*
+*Last updated: November 2, 2026*
 
 Bite Log has no server and no accounts. The developer does not collect,
 receive, or store any of your data.
@@ -19,6 +19,14 @@ Your log, photos, recordings and settings are included in your device's
 iCloud or computer backups, if you use them, like any other app's data.
 Apple holds those backups in your account; the developer has no access to them. Deleting the app deletes it from the
 phone.
+
+## Exporting your data
+
+Settings → Export data saves your log, foods, photos, recordings and daily
+targets in one zip file, wherever you choose to put it. It contains nothing
+about your models: no keys, addresses, or model names. The file is yours: Bite
+Log doesn't send it anywhere, and whoever you give it to can read it. Loading
+a file replaces the data on the phone with the file's.
 
 ## What goes to your AI model provider
 

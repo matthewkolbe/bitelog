@@ -20,7 +20,7 @@ final class SettingsUITests: XCTestCase {
         shot(app, "1-setup")
 
         // a navigation row's label is "title, subtitle"
-        let qwen = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Qwen on your own server'")).firstMatch
+        let qwen = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Your own computer'")).firstMatch
         if let dir = env["BITELOG_SHOTS"], !qwen.waitForExistence(timeout: 5) {
             try? app.debugDescription.write(toFile: dir + "/tree.txt", atomically: true, encoding: .utf8)
         }
@@ -30,6 +30,17 @@ final class SettingsUITests: XCTestCase {
         let connect = app.buttons["Connect"]
         XCTAssertFalse(connect.isEnabled, "Connect needs a model id first")
         shot(app, "2-connect")
+
+        // the step-by-step guide, with the memory each model needs
+        app.buttons["Step-by-step guide"].tap()
+        XCTAssertTrue(app.staticTexts["Gemma 4 26B-A4B (recommended)"].waitForExistence(timeout: 5))
+        shot(app, "2-guide")
+        app.swipeUp()
+        shot(app, "2-guide-more")
+        app.swipeUp()
+        shot(app, "2-guide-agent")
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(address.waitForExistence(timeout: 5))
 
         guard let live = env["BITELOG_LIVE"] else { return }
         address.tap()

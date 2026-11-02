@@ -139,3 +139,25 @@ extension FoodDB {
 }
 
 private func num(_ v: Double??) -> JSON { (v ?? nil).map(JSON.number) ?? .null }
+
+// MARK: - export and load
+
+extension FoodDB {
+    /// What a loaded export's custom_foods.db must have.
+    static let requiredCustom = ["food": ["fdc_id", "description", "serving_g"]]
+
+    /// A standalone copy of the custom foods (the export's custom_foods.db).
+    func copyCustom(to url: URL) throws { try db.copy("custom", to: url.path) }
+
+    /// Replaces every custom food with those in another custom foods file.
+    func replaceCustom(from url: URL) throws { try db.replaceRows("custom", tables: ["food"], from: url.path) }
+
+    /// Checks a loaded export's custom foods; returns how many show in search.
+    static func checkCustom(_ url: URL) throws -> Int {
+        let db = try SQLite.checked(url.path, required: requiredCustom, what: "The foods list")
+        guard try db.rows("SELECT 1 FROM food WHERE fdc_id >= 0 LIMIT 1").isEmpty else {
+            throw Failure.invalid("The foods list in this file has foods with USDA ids.")
+        }
+        return try db.rows("SELECT COUNT(*) AS n FROM food WHERE hidden=0").first?["n"]?.int ?? 0
+    }
+}

@@ -323,6 +323,32 @@ struct LoggerTests {
     /// A real recording through on-device speech to text and the real model.
     /// Needs a device with a speech model (an iPhone, or the Mac running the
     /// app as "Designed for iPhone"), not the Simulator:
+    /// The live tests' model: TEST_RUNNER_BITELOG_MODEL (default qwen38) on the
+    /// TEST_RUNNER_BITELOG_LIVE server, with its family's sampling, thinking off.
+    static func liveProfile() -> Profile {
+        let env = ProcessInfo.processInfo.environment
+        let model = env["BITELOG_MODEL"] ?? "qwen38"
+        let sampling: JSON = model.lowercased().hasPrefix("gemma")
+            ? ["temperature": 1.0, "top_p": 0.95, "top_k": 64]   // Google's
+            : ["temperature": 0.6, "top_p": 0.95, "top_k": 20]   // Qwen's for precise work
+        return Profile(name: "Home", kind: .openAI, baseURL: env["BITELOG_LIVE"]!, model: model, vision: true,
+                       extra: sampling.merging(["chat_template_kwargs": ["enable_thinking": false]]))
+    }
+
+    /// The log shows what the model took the food to be, not the misheard words.
+    /// TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 xcodebuild … test
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
+    func liveMisheardNamesAreFixed() async throws {
+        let id = try log.addEntry()
+        try log.update(id, ["transcript": "Sixty grams of smoked salmon locks and a bowl of great yogurt."])
+        let p = Self.liveProfile()
+        try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
+        let names = try #require(try log.entry(id)).items.compactMap { $0.said?.lowercased() }
+        #expect(names.contains { $0.contains("lox") }, "\(names)")
+        #expect(names.contains { $0.contains("greek") }, "\(names)")
+        #expect(!names.contains { $0.contains("locks") || $0.contains("great") }, "\(names)")
+    }
+
     /// TEST_RUNNER_BITELOG_STT=<folder with media/*.wav> TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 xcodebuild … test
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_STT"] != nil
                    && ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
@@ -332,8 +358,7 @@ struct LoggerTests {
         let id = try log.addEntry(audio: try Media.save(Data(contentsOf: wav), ext: "wav"))  // "Eighty one grams of Asian pear."
         let words = try await logger.transcribe(try Media.url(#require(try log.entry(id)?.audio)))
         try log.update(id, ["transcript": words])
-        let p = Profile(name: "Home", kind: .openAI, baseURL: env["BITELOG_LIVE"]!, model: "qwen38", vision: true,
-                        extra: ["temperature": 0.6, "top_p": 0.95, "top_k": 20, "chat_template_kwargs": ["enable_thinking": false]])
+        let p = Self.liveProfile()
         try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
         let e = try #require(try log.entry(id))
         #expect(words.lowercased().contains("pear"), "heard: \(words)")
@@ -345,10 +370,8 @@ struct LoggerTests {
     /// The whole thing against the real gateway, only when asked:
     /// TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 xcodebuild … test
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
-    func liveQwen() async throws {
-        let p = Profile(name: "Home", kind: .openAI, baseURL: ProcessInfo.processInfo.environment["BITELOG_LIVE"]!,
-                        model: "qwen38", vision: true,
-                        extra: ["temperature": 0.6, "top_p": 0.95, "top_k": 20, "chat_template_kwargs": ["enable_thinking": false]])
+    func liveEntry() async throws {
+        let p = Self.liveProfile()
         let id = try log.addEntry(text: "130 grams of red seedless grapes and two scrambled eggs")
         try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
         let e = try #require(try log.entry(id))
@@ -361,9 +384,7 @@ struct LoggerTests {
     /// request path (the strict schema with anyOf nullables).
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(5)))
     func liveRecipePhoto() async throws {
-        let p = Profile(name: "Home", kind: .openAI, baseURL: ProcessInfo.processInfo.environment["BITELOG_LIVE"]!,
-                        model: "qwen38", vision: true,
-                        extra: ["temperature": 0.6, "top_p": 0.95, "top_k": 20, "chat_template_kwargs": ["enable_thinking": false]])
+        let p = Self.liveProfile()
         let page = """
             Weeknight Chicken Chili
             Serves 4-6

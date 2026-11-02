@@ -289,6 +289,55 @@ final class LogDB {
                      pendingEdit: r["pending_edit"]?.string, items: items)
     }
 
+    // MARK: - export and load
+
+    /// What a loaded export's log.db must have: the columns this schema can't do without.
+    static let required = ["entry": ["id", "created_at", "tz", "day", "status"],
+                           "item": ["id", "entry_id", "ord", "fdc_id", "description", "grams", "basis"]]
+
+    /// A standalone copy of the log for an export: without which model handled
+    /// each entry, so the file holds nothing about the model setup. Secure
+    /// delete overwrites the old values rather than leaving them in free pages.
+    func copy(to url: URL) throws {
+        try db.copy("main", to: url.path)
+        let out = try SQLite(path: url.path, readOnly: false)
+        try out.execute("PRAGMA journal_mode = DELETE; PRAGMA secure_delete = ON; UPDATE entry SET model = NULL; VACUUM;")
+    }
+
+    /// Replaces the whole log with another log file's.
+    func replaceAll(from url: URL) throws {
+        defer { revision += 1 }
+        try db.replaceRows("main", tables: ["entry", "item"], from: url.path)
+    }
+
+    /// Every media file name the log refers to.
+    func mediaNames() throws -> Set<String> {
+        Set(try db.rows("SELECT audio AS n FROM entry WHERE audio IS NOT NULL UNION SELECT photo FROM entry WHERE photo IS NOT NULL")
+            .compactMap { $0["n"]?.string })
+    }
+
+    struct Summary: Equatable {
+        let entries: Int
+        let first: String?
+        let last: String?
+    }
+
+    func summary() throws -> Summary { try Self.summary(db) }
+
+    /// Checks a loaded export's log and says what's in it.
+    static func checkLog(_ url: URL) throws -> Summary {
+        let db = try SQLite.checked(url.path, required: required, what: "The log")
+        guard try db.rows("SELECT 1 FROM item WHERE entry_id NOT IN (SELECT id FROM entry) LIMIT 1").isEmpty else {
+            throw SQLite.Failure.sqlite("The log in this file has foods that belong to no entry.")
+        }
+        return try summary(db)
+    }
+
+    private static func summary(_ db: SQLite) throws -> Summary {
+        let r = try db.rows("SELECT COUNT(*) AS n, MIN(day) AS a, MAX(day) AS b FROM entry").first ?? [:]
+        return Summary(entries: r["n"]?.int ?? 0, first: r["a"]?.string, last: r["b"]?.string)
+    }
+
     /// The local date of `date` in `tz`, YYYY-MM-DD.
     static func day(_ date: Date, _ tz: TimeZone) -> String {
         var cal = Calendar(identifier: .gregorian)

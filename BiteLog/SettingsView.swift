@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// The models the app may use, in the order each entry tries them.
 struct SettingsView: View {
@@ -27,11 +28,14 @@ struct SettingsView: View {
                 Text("They drive the bars on the day's summary.")
             }
 
+            DataSection(model: model)
+
             Section {
                 NavigationLink { FoodsView(model: model) } label: { Label("My foods and recipes", systemImage: "basket") }
                 NavigationLink {
                     IntroView { EmptyView() }.navigationBarTitleDisplayMode(.inline)
                 } label: { Label("How Bite Log works", systemImage: "questionmark.circle") }
+                NavigationLink { GuideList() } label: { Label("Model guides", systemImage: "list.number") }
             }
 
             Section {
@@ -144,11 +148,41 @@ struct ProfileEditor: View {
     }
 
     var body: some View {
-        Form {
-            Section {
-                TextField("Name", text: $profile.name)
-                Toggle("Use this model", isOn: $profile.enabled)
+        form
+    }
+
+    private var nameSection: some View {
+        Section {
+            TextField("Name", text: $profile.name)
+            Toggle("Use this model", isOn: $profile.enabled)
+        }
+    }
+
+    private var testSection: some View {
+        Section {
+            Button("Test connection") { Task { await runTest() } }
+                .disabled(isRunning)
+            switch test {
+            case .idle: EmptyView()
+            case .running: ProgressView()
+            case .passed(let m): Label(m, systemImage: "checkmark.circle").foregroundStyle(.green)
+            case .failed(let m): Label(m, systemImage: "xmark.octagon").foregroundStyle(.red)
             }
+        }
+    }
+
+    private var removeSection: some View {
+        Section {
+            Button("Remove this model", role: .destructive) {
+                dismiss()
+                delete()
+            }
+        }
+    }
+
+    private var form: some View {
+        Form {
+            nameSection
 
             Section {
                 Picker("API", selection: $profile.kind) {
@@ -232,23 +266,8 @@ struct ProfileEditor: View {
                 Text("JSON added to every request, e.g. sampling settings: {\"temperature\": 0.6}.")
             }
 
-            Section {
-                Button("Test connection") { Task { await runTest() } }
-                    .disabled(isRunning)
-                switch test {
-                case .idle: EmptyView()
-                case .running: ProgressView()
-                case .passed(let m): Label(m, systemImage: "checkmark.circle").foregroundStyle(.green)
-                case .failed(let m): Label(m, systemImage: "xmark.octagon").foregroundStyle(.red)
-                }
-            }
-
-            Section {
-                Button("Remove this model", role: .destructive) {
-                    dismiss()
-                    delete()
-                }
-            }
+            testSection
+            removeSection
         }
         .navigationTitle(profile.name)
         .navigationBarTitleDisplayMode(.inline)
@@ -294,4 +313,136 @@ struct ProfileEditor: View {
 /// "1 request", "2,400 tokens".
 func count(_ n: Int, _ noun: String) -> String {
     "\(n.formatted()) \(noun)\(n == 1 ? "" : "s")"
+}
+
+/// Export everything to one file, or load one back (replacing what's here).
+struct DataSection: View {
+    let model: AppModel
+    @State private var exportFile: ExportFile?
+    @State private var exporting = false
+    @State private var importing = false
+    @State private var opened: Backup.Opened?
+    @State private var busy = false
+    @State private var message: (text: String, failed: Bool)?
+
+    var body: some View {
+        Section {
+            Button {
+                Task { await export() }
+            } label: {
+                Label("Export data", systemImage: "square.and.arrow.up")
+            }
+            .disabled(busy)
+            .fileExporter(isPresented: $exporting, document: exportFile, contentType: .zip,
+                          defaultFilename: exportFile?.url.lastPathComponent) { result in
+                if let f = exportFile { try? FileManager.default.removeItem(at: f.url.deletingLastPathComponent()) }
+                exportFile = nil
+                switch result {
+                case .success: message = ("Exported.", false)
+                case .failure(let e as CocoaError) where e.code == .userCancelled: break
+                case .failure(let e): message = (String(describing: e), true)
+                }
+            }
+
+            Button {
+                importing = true
+            } label: {
+                Label("Load data", systemImage: "square.and.arrow.down")
+            }
+            .disabled(busy || model.logger.running)
+            .fileImporter(isPresented: $importing, allowedContentTypes: [.zip]) { result in
+                switch result {
+                case .success(let url): Task { await open(url) }
+                case .failure(let e): message = (String(describing: e), true)
+                }
+            }
+
+            if busy { ProgressView() }
+            if let message {
+                Text(message.text).font(.callout).foregroundStyle(message.failed ? .red : .secondary)
+            }
+        } header: {
+            Text("Your data")
+        } footer: {
+            Text("Export saves your log, foods, photos, recordings and targets in one file, to keep or move to "
+                 + "another phone. Models and keys aren't included. Loading a file replaces everything here.")
+        }
+        .alert("Replace everything on this phone?", isPresented: Binding(get: { opened != nil }, set: { if !$0 { cancel() } }),
+               presenting: opened) { o in
+            Button("Replace", role: .destructive) { load(o) }
+            Button("Cancel", role: .cancel) { cancel() }
+        } message: { o in
+            Text(summary(o))
+        }
+    }
+
+    private func export() async {
+        busy = true
+        defer { busy = false }
+        message = nil
+        do {
+            exportFile = ExportFile(url: try await Backup.export(log: model.log, foods: model.foods, media: try Media.dir()))
+            exporting = true
+        } catch {
+            message = (String(describing: error), true)
+        }
+    }
+
+    private func open(_ url: URL) async {
+        busy = true
+        defer { busy = false }
+        message = nil
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        do {
+            opened = try await Backup.open(url)
+        } catch {
+            message = (String(describing: error), true)
+        }
+    }
+
+    private func load(_ o: Backup.Opened) {
+        opened = nil
+        // an entry being worked on would be written into the replaced log
+        guard !model.logger.running else {
+            Backup.discard(o)
+            message = ("An entry is still being logged. Try again when it's done.", true)
+            return
+        }
+        do {
+            try Backup.load(o, log: model.log, foods: model.foods, media: try Media.dir())
+            message = ("Loaded \(entries(o.log.entries)) "
+                       + "and \(count(o.foods, "food")).", false)
+            model.logger.kick()
+        } catch {
+            Backup.discard(o)
+            message = ("Nothing was changed: \(error)", true)
+        }
+    }
+
+    private func cancel() {
+        if let o = opened { Backup.discard(o) }
+        opened = nil
+    }
+
+    private func summary(_ o: Backup.Opened) -> String {
+        let here = (try? model.log.summary())?.entries ?? 0
+        let span = o.log.first.map { f in o.log.last.map { $0 == f ? " from \(f)" : " from \(f) to \($0)" } ?? "" } ?? ""
+        let made = o.manifest.exportedAt.formatted(date: .abbreviated, time: .shortened)
+        return "The file, exported \(made), has \(entries(o.log.entries))\(span) and \(count(o.foods, "food")). "
+            + "It replaces the \(entries(here)) on this phone, with their photos and recordings, your foods, "
+            + "and your targets. Your models stay."
+    }
+
+    private func entries(_ n: Int) -> String { n == 1 ? "1 entry" : "\(n.formatted()) entries" }
+}
+
+/// The finished export, handed to the Files picker.
+nonisolated struct ExportFile: FileDocument {
+    static let readableContentTypes: [UTType] = [.zip]
+    let url: URL
+
+    init(url: URL) { self.url = url }
+    init(configuration: ReadConfiguration) throws { throw CocoaError(.featureUnsupported) }
+    func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { try FileWrapper(url: url) }
 }

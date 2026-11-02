@@ -104,6 +104,54 @@ final class SQLite {
         return out
     }
 
+    // MARK: - whole-database copies (export and load)
+
+    /// A standalone copy of one attached database ("main", "custom") at `path`.
+    func copy(_ schema: String, to path: String) throws {
+        try run("VACUUM \(schema) INTO ?", [.text(path)])
+    }
+
+    func columns(_ schema: String, _ table: String) throws -> [String] {
+        try rows("PRAGMA \(schema).table_info(\(table))").compactMap { $0["name"]?.string }
+    }
+
+    /// Replaces the rows of `schema`'s tables with those of the same tables in
+    /// the database file at `path`, copying the columns both sides have: all
+    /// or nothing. Tables are emptied last to first and filled first to last,
+    /// so a table others refer to comes first.
+    func replaceRows(_ schema: String, tables: [String], from path: String) throws {
+        try run("ATTACH DATABASE ? AS imported", [.text(path)])
+        defer { try? execute("DETACH DATABASE imported") }
+        try transaction {
+            for t in tables.reversed() { try execute("DELETE FROM \(schema).\(t)") }
+            for t in tables {
+                let theirs = Set(try columns("imported", t))
+                let cols = try columns(schema, t).filter(theirs.contains).joined(separator: ", ")
+                try execute("INSERT INTO \(schema).\(t)(\(cols)) SELECT \(cols) FROM imported.\(t)")
+            }
+        }
+    }
+
+    /// Opens a database file that came from outside the app (a loaded export)
+    /// and checks it before anything is copied from it: intact, and with each
+    /// table in `required` holding at least those columns.
+    static func checked(_ path: String, required: [String: [String]], what: String) throws -> SQLite {
+        let db = try SQLite(path: path, readOnly: false)
+        guard try db.rows("PRAGMA quick_check").first?.values.first == .text("ok") else {
+            throw Failure.sqlite("\(what) in this file is damaged.")
+        }
+        for (table, cols) in required {
+            guard try !db.rows("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", [.text(table)]).isEmpty else {
+                throw Failure.sqlite("\(what) in this file has no \(table) table.")
+            }
+            let missing = Set(cols).subtracting(try db.columns("main", table))
+            guard missing.isEmpty else {
+                throw Failure.sqlite("\(what) in this file is missing \(table) columns: \(missing.sorted().joined(separator: ", ")).")
+            }
+        }
+        return db
+    }
+
     private func error(_ sql: String) -> Failure {
         .sqlite("\(String(cString: sqlite3_errmsg(db))) — in: \(sql)")
     }

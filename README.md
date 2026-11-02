@@ -41,6 +41,8 @@ app.
 - **Your own foods.** Photograph a package label to add a product. Build
   recipes from an ingredient list, or photograph a recipe page.
 - **Goals and history.** Daily calorie and macro targets, and a history of past days.
+- **Export and load.** Save your log, foods, photos and recordings to one zip
+  file, to keep or move to another phone. Model settings and keys are never in it.
 
 ## Privacy
 
@@ -49,6 +51,13 @@ stored on your phone, and in its backups (iCloud or your computer) if you make
 them; the developer never receives any of it. When you log something, the text or photo goes to the
 model provider you chose, under that provider's terms. API keys are kept in
 the iOS Keychain on this device only, never in backups. Full policy: [PRIVACY.md](PRIVACY.md).
+
+For complete privacy, run the model yourself. With a model on a computer at
+home (Gemma 4 on a Mac or PC with 16 GB or more), nothing you log ever leaves
+your home: no company sees your meals, photos or voice, and nothing can be
+kept, sold, or trained on. That's how Bite Log was meant to run. The app's
+"Your own computer" guide walks through it, starting with handing the setup to
+a coding agent.
 
 ## Building
 
