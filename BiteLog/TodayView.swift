@@ -1,3 +1,4 @@
+import Charts
 import SwiftUI
 
 /// One day's log: totals against your targets, entries, and a bar to say,
@@ -249,37 +250,81 @@ struct TotalsView: View {
     var body: some View {
         let kcal = totals["kcal"] ?? 0
         VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .firstTextBaseline) {
-                Text("\(Int(kcal.rounded()))").font(.system(size: 40, weight: .semibold, design: .rounded))
-                Text(kcalGoal > 0 ? "of \(Int(kcalGoal)) kcal" : "kcal").foregroundStyle(.secondary)
-                Spacer()
-                if kcalGoal > 0 {
-                    Text(kcal > kcalGoal ? "\(Int((kcal - kcalGoal).rounded())) over" : "\(Int((kcalGoal - kcal).rounded())) left")
-                        .foregroundStyle(kcal > kcalGoal ? .red : .secondary)
+            HStack(alignment: .center) {
+                HStack(alignment: .firstTextBaseline) {
+                    Text("\(Int(kcal.rounded()))").font(.system(size: 40, weight: .semibold, design: .rounded))
+                    Text(kcalGoal > 0 ? "of \(Int(kcalGoal)) kcal" : "kcal").foregroundStyle(.secondary)
                 }
+                Spacer()
+                MacroRing(totals: totals).frame(width: 56, height: 56)
             }
             if kcalGoal > 0 {
                 ProgressView(value: min(kcal, kcalGoal), total: kcalGoal).tint(kcal > kcalGoal ? .red : .accentColor)
+                Text(kcal > kcalGoal ? "\(Int((kcal - kcalGoal).rounded())) over" : "\(Int((kcalGoal - kcal).rounded())) left")
+                    .font(.callout).foregroundStyle(kcal > kcalGoal ? .red : .secondary)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
             HStack {
-                macro("Protein", "protein_g", 4, goal: proteinGoal)
-                macro("Fat", "fat_g", 9)
-                macro("Carbs", "carb_g", 4)
+                macro("Protein", "protein_g", goal: proteinGoal)
+                macro("Fat", "fat_g")
+                macro("Carbs", "carb_g")
             }
         }
     }
 
-    private func macro(_ name: String, _ key: String, _ kcalPerG: Double, goal: Double = 0) -> some View {
+    private func macro(_ name: String, _ key: String, goal: Double = 0) -> some View {
         let g = totals[key] ?? 0
-        let fromMacros = max(1, (totals["protein_g"] ?? 0) * 4 + (totals["fat_g"] ?? 0) * 9 + (totals["carb_g"] ?? 0) * 4)
         return VStack(alignment: .leading, spacing: 3) {
-            Text(name).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 5) {
+                Circle().fill(Macro.color(key)).frame(width: 8, height: 8)
+                Text(name).font(.caption).foregroundStyle(.secondary)
+            }
             Text("\(fmt(g)) g").font(.headline.monospacedDigit())
                 + Text(goal > 0 ? " of \(Int(goal))" : "").font(.caption).foregroundStyle(.secondary)
-            // share of calories, or progress toward the target when there is one
-            ProgressView(value: goal > 0 ? min(1, g / goal) : g * kcalPerG / fromMacros)
+            // a bar only toward a target the user set: without one there's nothing to measure against
+            if goal > 0 { ProgressView(value: min(1, g / goal)) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The macros' colors, the web app's (--p, --f, --c), light and dark.
+enum Macro {
+    static func color(_ key: String) -> Color {
+        switch key {
+        case "protein_g": dynamic(0x3f7fbf, 0x7fb2e5)
+        case "fat_g": dynamic(0xc9952b, 0xe5c06a)
+        default: dynamic(0x3f8f47, 0x8fd18a)
+        }
+    }
+
+    private static func dynamic(_ light: UInt32, _ dark: UInt32) -> Color {
+        func ui(_ v: UInt32) -> UIColor {
+            UIColor(red: CGFloat(v >> 16 & 0xff) / 255, green: CGFloat(v >> 8 & 0xff) / 255, blue: CGFloat(v & 0xff) / 255, alpha: 1)
+        }
+        return Color(UIColor { $0.userInterfaceStyle == .dark ? ui(dark) : ui(light) })
+    }
+}
+
+/// Where the day's calories came from: protein, fat and carbs (4/9/4 kcal per g),
+/// as a ring. Empty until something's logged.
+struct MacroRing: View {
+    let totals: [String: Double]
+
+    var body: some View {
+        let parts = [("protein_g", 4.0), ("fat_g", 9.0), ("carb_g", 4.0)].map { ($0.0, (totals[$0.0] ?? 0) * $0.1) }
+        let all = parts.reduce(0) { $0 + $1.1 }
+        if all > 0 {
+            Chart(parts, id: \.0) { key, kcal in
+                SectorMark(angle: .value("kcal", kcal), innerRadius: .ratio(0.6), angularInset: 1)
+                    .foregroundStyle(Macro.color(key))
+            }
+            .chartLegend(.hidden)
+            .accessibilityElement()
+            .accessibilityLabel("Calories: " + zip(["protein", "fat", "carbs"], parts).map {
+                "\(Int(($1.1 / all * 100).rounded()))% \($0)"
+            }.joined(separator: ", "))
+        }
     }
 }
 

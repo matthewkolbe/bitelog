@@ -189,6 +189,32 @@ struct LoggerTests {
         #expect(said.hasSuffix("\n\nChange requested: it was 200 grams"))
     }
 
+    /// Redo starts over with the model but keeps the user's changes, and tells
+    /// the model to apply them.
+    @Test func redoKeepsTheChanges() async throws {
+        let first = Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 130, "basis": "weighed"}], "summary": "red"}"#)]])
+        let e = try await run("130 g grapes", first)
+        try log.requestEdit(e.id, "it was 200 grams")
+        try await logger.run(e.id) { try Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 200, "basis": "weighed"}], "summary": "200 g"}"#)]]).send($0, $1) }
+
+        try log.redo(e.id)
+        let queued = try #require(try log.entry(e.id))
+        #expect(queued.status == .queued && queued.items.isEmpty)
+        #expect(queued.edits == ["it was 200 grams"])
+
+        let s = Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 200, "basis": "weighed"}], "summary": "200 g"}"#)]])
+        try await logger.run(e.id) { try s.send($0, $1) }
+        let after = try #require(try log.entry(e.id))
+        #expect(after.status == .done)
+        #expect(after.edits == ["it was 200 grams"])
+        #expect(after.items[0].grams == 200)
+        guard case .system(let system) = s.requests[0].messages[0], case .user(let parts) = s.requests[0].messages[1],
+              case .text(let said) = parts[0] else { Issue.record("no prompt"); return }
+        #expect(system == logger.brain.system)  // a fresh log, not an edit
+        #expect(said.hasSuffix("Typed: 130 g grapes\n\nThe user has corrected this entry since; log it with these "
+                               + "changes applied: \u{201C}it was 200 grams\u{201D}"))
+    }
+
     @Test func changeThatChangesNothingKeepsTheEntry() async throws {
         let e = try await run("130 g grapes", Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 130, "basis": "weighed"}], "summary": ""}"#)]]))
         try log.requestEdit(e.id, "it was delicious")
@@ -204,7 +230,7 @@ struct LoggerTests {
     @Test func voiceIsTranscribedFirst() async throws {
         let rec = try Media.save(Data("RIFF".utf8), ext: "wav")
         let id = try log.addEntry(audio: rec)
-        logger.transcribe = { _ in "eighty one grams of asian pear" }
+        logger.transcribe = { _ in .init(text: "eighty one grams of asian pear") }
         let s = Script([[("nothing_to_log", #"{"reason": "x"}"#)]])
         // process() picks a model by the route; run the same steps with the script instead
         try await transcribeThenRun(id, s)
@@ -218,9 +244,22 @@ struct LoggerTests {
 
     private func transcribeThenRun(_ id: Int64, _ s: Script) async throws {
         let e = try #require(try log.entry(id))
-        let words = try await logger.transcribe(try Media.url(e.audio!))
-        try log.update(id, ["transcript": words])
+        let heard = try await logger.transcribe(try Media.url(e.audio!))
+        try log.update(id, Logger.fields(heard))
         try await logger.run(id) { try s.send($0, $1) }
+    }
+
+    @Test func otherReadingsGoToTheModel() async throws {
+        let id = try log.addEntry(audio: try Media.save(Data("RIFF".utf8), ext: "wav"))
+        logger.transcribe = { _ in .init(text: "one pair", alternatives: ["one pear", "won pair"]) }
+        let s = Script([[("nothing_to_log", #"{"reason": "x"}"#)]])
+        try await transcribeThenRun(id, s)
+        let e = try #require(try log.entry(id))
+        #expect(e.transcript == "one pair")
+        #expect(e.alternatives == ["one pear", "won pair"])
+        guard case .user(let parts) = s.requests[0].messages[1], case .text(let said) = parts[0] else { return }
+        #expect(said.hasSuffix("\nVoice transcript: one pair\nThe recognizer's other readings of it: \u{201C}one pear\u{201D}, \u{201C}won pair\u{201D}"))
+        try log.deleteEntry(id)
     }
 
     @Test func photoGoesToTheModel() async throws {
@@ -349,15 +388,63 @@ struct LoggerTests {
         #expect(!names.contains { $0.contains("locks") || $0.contains("great") }, "\(names)")
     }
 
-    /// TEST_RUNNER_BITELOG_STT=<folder with media/*.wav> TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 xcodebuild … test
-    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_STT"] != nil
+    /// Transcripts spelled by sound: a homophone of a food stands for that food.
+    /// None of these words appear in the prompt, so passing means the model
+    /// applied the rule, not an example.
+    nonisolated static let soundAlikes: [(heard: String, food: String, wrong: String)] = [
+        ("One pair.", "pear", "pair"),
+        ("A bowl of serial with milk.", "cereal", "serial"),
+        ("A beat salad.", "beet", "beat"),
+        ("A cup of leak and potato soup.", "leek", "leak"),
+        ("A bowl of chilly with beans.", "chili", "chilly"),
+        ("About two hundred grams of steamed muscles.", "mussel", "muscle"),
+        ("Chicken carry with white rice.", "curry", "carry"),
+        ("A handful of dried currents.", "currant", "current"),
+        ("A filet of soul, baked.", "sole", "soul"),
+        ("A scoop of way protein in water.", "whey", "way"),
+        ("A mug of tee with honey.", "tea", "tee"),
+        ("Six ounces of grilled stake.", "steak", "stake"),
+        ("Two slices of wry bread.", "rye", "wry"),
+        ("A bowl of oat meal with a teaspoon of cinnamon and a hand full of rays ins.", "raisin", "rays"),
+    ]
+
+    /// TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 xcodebuild … test
+    /// The one sound-alike the rule alone misses ("pair" is also an amount
+    /// word), with the recognizer's other reading supplied.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
+    func liveOtherReadingSettlesIt() async throws {
+        let id = try log.addEntry()
+        try log.update(id, Logger.fields(.init(text: "One pair.", alternatives: ["One pear."])))
+        let p = Self.liveProfile()
+        try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
+        let e = try #require(try log.entry(id))
+        let names = e.items.compactMap { $0.said?.lowercased() }
+        #expect(names.contains { $0.contains("pear") }, "\(names) \(e.reply ?? e.error ?? "")")
+    }
+
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)),
+          arguments: soundAlikes)
+    func liveSoundAlikes(_ c: (heard: String, food: String, wrong: String)) async throws {
+        let id = try log.addEntry()
+        try log.update(id, ["transcript": c.heard])
+        let p = Self.liveProfile()
+        try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
+        let e = try #require(try log.entry(id))
+        let names = e.items.compactMap { $0.said?.lowercased() }
+        #expect(names.contains { $0.contains(c.food) }, "\(c.heard) -> \(names) \(e.reply ?? e.error ?? "")")
+        #expect(!names.contains { $0.contains(c.wrong) }, "\(c.heard) -> \(names)")
+    }
+
+    /// On a phone with the recordings in the test bundle (see VoiceTests):
+    ///   TEST_RUNNER_BITELOG_LIVE=http://<server>:<port>/v1 xcodebuild … -destination 'platform=iOS,id=<phone>' test
+    @Test(.enabled(if: VoiceTests.recordings != nil
                    && ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
     func liveVoiceEntry() async throws {
-        let env = ProcessInfo.processInfo.environment
-        let wav = URL(fileURLWithPath: env["BITELOG_STT"]!).appendingPathComponent("media/3e28925ed92044fc83fe0dd343753f3d.wav")
+        let wav = try #require(VoiceTests.recordings).appendingPathComponent("media/3e28925ed92044fc83fe0dd343753f3d.wav")
         let id = try log.addEntry(audio: try Media.save(Data(contentsOf: wav), ext: "wav"))  // "Eighty one grams of Asian pear."
-        let words = try await logger.transcribe(try Media.url(#require(try log.entry(id)?.audio)))
-        try log.update(id, ["transcript": words])
+        let heard = try await logger.transcribe(try Media.url(#require(try log.entry(id)?.audio)))
+        let words = heard.text
+        try log.update(id, Logger.fields(heard))
         let p = Self.liveProfile()
         try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
         let e = try #require(try log.entry(id))

@@ -29,6 +29,8 @@ final class LogDB {
         var day: String
         var text: String?
         var transcript: String?
+        /// The recognizer's other readings of the recording, whole.
+        var alternatives: [String] = []
         /// Media file names (see `Media`).
         var audio: String?
         var photo: String?
@@ -92,6 +94,7 @@ final class LogDB {
             photo      TEXT,
             text       TEXT,                   -- typed text
             transcript TEXT,                   -- what speech-to-text heard
+            alternatives TEXT,                 -- JSON list: its other readings of the recording
             status     TEXT NOT NULL,          -- queued | transcribing | thinking | waiting | done | nothing | error
             reply      TEXT,                   -- the model's one-line summary / assumptions
             error      TEXT,
@@ -125,6 +128,14 @@ final class LogDB {
         db = try SQLite(path: path, readOnly: false)
         try db.execute("PRAGMA foreign_keys = ON; PRAGMA journal_mode = WAL;")
         try db.execute(Self.schema)
+        try migrate()
+    }
+
+    /// Columns added since a log was created.
+    private func migrate() throws {
+        if !(try db.columns("main", "entry")).contains("alternatives") {
+            try db.execute("ALTER TABLE entry ADD COLUMN alternatives TEXT")
+        }
     }
 
     static func app() throws -> LogDB {
@@ -146,11 +157,12 @@ final class LogDB {
                            opt(text), opt(audio), opt(photo), .text(Status.queued.rawValue)])
     }
 
-    /// Redo with the model from scratch: the items, summary and changes go.
+    /// Redo with the model from scratch: the items and summary go; the changes
+    /// the user asked for stay, and the redo applies them again.
     func redo(_ id: Int64) throws {
         try db.transaction {
             try db.run("DELETE FROM item WHERE entry_id=?", [.int(id)])
-            try db.run("UPDATE entry SET status='queued', error=NULL, reply=NULL, edits=NULL, pending_edit=NULL WHERE id=?",
+            try db.run("UPDATE entry SET status='queued', error=NULL, reply=NULL, pending_edit=NULL WHERE id=?",
                        [.int(id)])
         }
         revision += 1
@@ -281,7 +293,9 @@ final class LogDB {
         }
         return Entry(id: id, createdAt: Date(timeIntervalSince1970: r["created_at"]?.double ?? 0),
                      tz: r["tz"]?.string ?? TimeZone.current.identifier, day: r["day"]?.string ?? "",
-                     text: r["text"]?.string, transcript: r["transcript"]?.string, audio: r["audio"]?.string,
+                     text: r["text"]?.string, transcript: r["transcript"]?.string,
+                     alternatives: try r["alternatives"]?.string.map { try JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [],
+                     audio: r["audio"]?.string,
                      photo: r["photo"]?.string,
                      status: Status(rawValue: r["status"]?.string ?? "") ?? .error, reply: r["reply"]?.string,
                      error: r["error"]?.string, meal: r["meal"]?.string, model: r["model"]?.string,

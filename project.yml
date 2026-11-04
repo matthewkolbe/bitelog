@@ -13,8 +13,8 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
-    MARKETING_VERSION: "0.1.2"
-    CURRENT_PROJECT_VERSION: "4"
+    MARKETING_VERSION: "0.1.3"
+    CURRENT_PROJECT_VERSION: "5"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 5ZW2S867N2
 targets:
@@ -54,6 +54,11 @@ targets:
     platform: iOS
     sources:
       - BiteLogTests
+      # The web app's recordings for the on-phone speech test, if copied in (gitignored)
+      - path: BiteLogTests/Recordings
+        type: folder
+        buildPhase: resources
+        optional: true
     dependencies:
       - target: BiteLog
     settings:

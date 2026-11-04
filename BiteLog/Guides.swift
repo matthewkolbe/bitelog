@@ -114,7 +114,7 @@ struct GuideView: View {
         warning("Check this first", [
             "**Memory: 16 GB at the very least, 32 GB to run it well.** With less, the models that fit get entries wrong. Most 8 GB laptops can't do it.",
             "**A Mac with Apple silicon (M1 or later), or a PC with a graphics card that has 12 GB or more of its own memory.** Intel Macs and PCs without such a card run it far too slowly.",
-            "**It must stay on, awake, and on your home Wi-Fi.** Away from home, entries wait in the app until you're back.",
+            "**It must stay on and awake.** Away from home, entries wait in the app until you're back, unless you add Tailscale (at the end of this guide).",
             "**About 20 GB of free disk space** for the download.",
             "A phone, tablet, Chromebook or Raspberry Pi can't run it.",
         ], footer: "If any of these rule you out, use Claude, OpenAI or OpenRouter instead: they take a few minutes to set up.")
@@ -145,6 +145,15 @@ struct GuideView: View {
         para("LM Studio (lmstudio.ai) does the same with buttons, on a Mac or PC: download Gemma 4 26B-A4B or 12B in it, start its server with serving on the local network turned on, and use http://your-computer.local:1234/v1 as the address.")
         heading("Keep it at home")
         para("This serves the model to every device on your network, so use it only on Wi-Fi you trust. To require a key, add --api-key followed by a password of your choice to the command, and paste the same password as the key in Bite Log.")
+        heading("Use it away from home, with Tailscale")
+        para("Tailscale (tailscale.com, free for personal use) joins your phone and computer into a private network that works from anywhere: cellular, work, travel. Your entries still go only to your computer, encrypted, and nothing is opened to the internet.")
+        step(1, "Install Tailscale on the computer and on your iPhone, and sign in to both with the same account (an email address works).")
+        step(2, "On the computer, in Terminal, share the model server with your own devices:")
+        code("tailscale serve --bg 8080")
+        para("The first time, it prints a link to turn on Serve for your account: open it, tap Enable, and run the command again. On a Mac with Tailscale from the App Store, the command is /Applications/Tailscale.app/Contents/MacOS/Tailscale instead of tailscale.")
+        step(3, "It prints the computer's Tailscale address, like https://my-mac.tail1234.ts.net. In Bite Log, use it with /v1 on the end:")
+        code("https://my-mac.tail1234.ts.net/v1")
+        para("Keep Tailscale connected on the iPhone (its VPN switch, or turn on VPN On Demand in its settings). Only your own signed-in devices can reach this address. If you only use Tailscale, you can start the server with --host 127.0.0.1 instead of 0.0.0.0, so it isn't on your home Wi-Fi at all.")
     }
 
     /// Why run it at home: the reason Bite Log exists.
@@ -175,6 +184,7 @@ struct GuideView: View {
         5. Make it start automatically when I log in, and keep the computer from sleeping while it serves.
         6. Test it: send a chat request with a tool definition and one with an image to http://localhost:8080/v1/chat/completions.
         7. Tell me the address to enter in the app (http://<this computer's local hostname>.local:8080/v1) and the model name the server lists at /v1/models.
+        8. Ask me whether I want to use it away from home too. If so, set up Tailscale: install it, have me sign in, run tailscale serve --bg 8080 (on a Mac with the App Store version, /Applications/Tailscale.app/Contents/MacOS/Tailscale serve --bg 8080; the first run prints a link for me to enable Serve, then run it again), test https://<this computer's Tailscale name>.ts.net/v1/models, and give me that address with /v1 for the app. Tell me to install Tailscale on my iPhone and sign in with the same account.
         """
 
     // MARK: - pieces

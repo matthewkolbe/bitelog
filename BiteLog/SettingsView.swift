@@ -25,7 +25,7 @@ struct SettingsView: View {
             } header: {
                 Text("Daily targets")
             } footer: {
-                Text("They drive the bars on the day's summary.")
+                Text("Optional. Set one and the day's summary shows a bar toward it; leave it empty and you see just the numbers.")
             }
 
             DataSection(model: model)

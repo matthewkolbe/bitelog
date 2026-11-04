@@ -150,7 +150,7 @@ struct ChangeSheet: View {
         Task {
             defer { transcribing = false }
             do {
-                let words = try await Transcriber.transcribe(url)
+                let words = try await Transcriber.transcribe(url).text
                 try? FileManager.default.removeItem(at: url)
                 let typed = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 send(typed.isEmpty ? words : typed + " " + words)

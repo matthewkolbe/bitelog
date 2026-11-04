@@ -56,3 +56,6 @@ fastlane/test_output/
 .vscode/
 *.swp
 *~
+
+# The web app's recordings for the on-phone speech test (VoiceTests): the user's own data
+BiteLogTests/Recordings/

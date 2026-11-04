@@ -15,12 +15,19 @@ final class Logger {
     let client: LLMClient
     let profiles: ProfileStore
     /// Speech to text; tests swap it.
-    @ObservationIgnored var transcribe: (URL) async throws -> String = Transcriber.transcribe
+    @ObservationIgnored var transcribe: (URL) async throws -> Transcriber.Transcript = Transcriber.transcribe
     private(set) var running = false
     @ObservationIgnored private var again = false
 
     /// The entry was deleted while it was being processed.
     struct Gone: Error {}
+
+    /// The log columns a transcript fills.
+    static func fields(_ t: Transcriber.Transcript) -> [String: String?] {
+        ["transcript": t.text,
+         "alternatives": t.alternatives.isEmpty ? nil
+             : String(decoding: try! JSONEncoder().encode(t.alternatives), as: UTF8.self)]
+    }
 
     struct Failure: Error, CustomStringConvertible {
         let description: String
@@ -62,10 +69,11 @@ final class Logger {
             request = e.pendingEdit
             if let a = e.audio, e.transcript == nil {
                 try log.update(id, status: .transcribing, ["error": nil])
-                let words = try await transcribe(Media.url(a))
+                let heard = try await transcribe(Media.url(a))
                 _ = try entry(id)
-                try log.update(id, ["transcript": words])
-                e.transcript = words
+                try log.update(id, Self.fields(heard))
+                e.transcript = heard.text
+                e.alternatives = heard.alternatives
             }
             if (e.transcript ?? "").isEmpty && (e.text ?? "").isEmpty && e.photo == nil {
                 try log.update(id, status: .nothing, ["reply": "Heard nothing."])
@@ -121,6 +129,11 @@ final class Logger {
             }
             lines += try householdFoods() + ["", "Change requested: \(edit)"]
         } else {
+            // a redone entry keeps the changes the user asked for (brain.py's _changes)
+            if !e.edits.isEmpty {
+                lines += ["", "The user has corrected this entry since; log it with these changes applied: "
+                          + e.edits.map { "\u{201C}\($0)\u{201D}" }.joined(separator: "; ")]
+            }
             lines += try householdFoods()
         }
         var content: [LLM.Part] = [.text(lines.joined(separator: "\n"))]
@@ -145,6 +158,9 @@ final class Logger {
         f.dateFormat = "EEEE yyyy-MM-dd HH:mm"
         var lines = ["Entry time: \(f.string(from: e.createdAt)) (user's local time)."]
         if let t = e.transcript, !t.isEmpty { lines.append("Voice transcript: \(t)") }
+        if !e.alternatives.isEmpty {
+            lines.append("The recognizer's other readings of it: " + e.alternatives.map { "\u{201C}\($0)\u{201D}" }.joined(separator: ", "))
+        }
         if let t = e.text, !t.isEmpty { lines.append("Typed: \(t)") }
         if e.photo != nil {
             lines.append((e.transcript ?? "").isEmpty && (e.text ?? "").isEmpty
@@ -289,11 +305,20 @@ final class Logger {
         }
     }
 
+    /// brain.py's _no_items: why a log_food call has nothing to log. The model
+    /// sometimes sends one item at the top level instead of inside items, and
+    /// must be told so, or it retries the same shape until the round limit.
+    static func noItems(_ args: JSON) -> String {
+        args["fdc_id"] != nil || args["said"] != nil
+            ? "items is missing: you sent one item at the top level; send {\"items\": [that item, ...], ...}"
+            : "items is empty"
+    }
+
     /// brain.py's _log: checks every item, computes the numbers, stores them.
     private func logFood(_ args: JSON, entry e: LogDB.Entry, tz: TimeZone, edit: String?) throws -> ToolLoop.Outcome {
         func error(_ m: String) -> ToolLoop.Outcome { .result(["error": .string(m)]) }
         let items = args["items"]?.array ?? []
-        guard !items.isEmpty else { return error("items is empty; use nothing_to_log if nothing was eaten") }
+        guard !items.isEmpty else { return error(Self.noItems(args) + "; use nothing_to_log if nothing was eaten") }
         let checked: [Checked]
         switch check(items, basis: true) {
         case .failure(let f): return error(f.description)
@@ -403,12 +428,12 @@ final class Logger {
                 throw Failure(description: args["reason"]?.string ?? "That doesn't read as a recipe.")
             case "recipe_ingredients":
                 let items = args["items"]?.array ?? []
+                if items.isEmpty { return .result(["error": .string(Self.noItems(args))]) }
                 let checked: [Checked]
                 switch self.check(items, basis: false) {
                 case .failure(let f): return .result(["error": .string(f.description)])
                 case .success(let c): checked = c
                 }
-                if items.isEmpty { return .result(["error": "items is empty"]) }
                 switch self.compute(checked) {
                 case .failure(let f): return .result(["error": .string(f.description)])
                 case .success(let numbers):

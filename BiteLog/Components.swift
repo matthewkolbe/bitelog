@@ -85,7 +85,7 @@ struct Dictation: View {
                 status = "Transcribing…"
                 Task {
                     do {
-                        let words = try await Transcriber.transcribe(url)
+                        let words = try await Transcriber.transcribe(url).text
                         try? FileManager.default.removeItem(at: url)
                         let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
                         text = t.isEmpty ? words : t + separator + words

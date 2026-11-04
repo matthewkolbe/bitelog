@@ -17,27 +17,71 @@ enum Transcriber {
     /// which Apple provides for devices without it (and the simulator).
     static var engine: String { SpeechTranscriber.isAvailable ? "SpeechTranscriber" : "DictationTranscriber" }
 
+    /// What the recognizer heard, and the other readings it weighed for the
+    /// same sound: it spells by sound, so "one pair" may also be "one pear".
+    nonisolated struct Transcript: Equatable {
+        var text: String
+        var alternatives: [String] = []
+    }
+
     /// The words in a recording. Installs the speech model the first time.
-    static func transcribe(_ file: URL) async throws -> String {
+    static func transcribe(_ file: URL) async throws -> Transcript {
         let audio = try AVAudioFile(forReading: file)
         if SpeechTranscriber.isAvailable {
             guard let locale = await SpeechTranscriber.supportedLocale(equivalentTo: locale) else {
                 throw Failure(description: "this phone has no on-device speech model for English")
             }
-            let module = SpeechTranscriber(locale: locale, transcriptionOptions: [], reportingOptions: [], attributeOptions: [])
+            let module = SpeechTranscriber(locale: locale, transcriptionOptions: [],
+                                           reportingOptions: [.alternativeTranscriptions], attributeOptions: [])
             try await install(module)
-            async let words = module.results.reduce(into: "") { $0 += String($1.text.characters) }
+            async let parts = module.results.reduce(into: [Part]()) { $0.append(Part($1.text, $1.alternatives)) }
             try await analyze(audio, with: module)
-            return try await words.trimmingCharacters(in: .whitespacesAndNewlines)
+            return join(try await parts)
         }
         guard let locale = await DictationTranscriber.supportedLocale(equivalentTo: locale) else {
             throw Failure(description: "this phone has no on-device dictation model for English")
         }
-        let module = DictationTranscriber(locale: locale, preset: .shortDictation)
+        var preset = DictationTranscriber.Preset.shortDictation
+        preset.reportingOptions.insert(.alternativeTranscriptions)
+        let module = DictationTranscriber(locale: locale, preset: preset)
         try await install(module)
-        async let words = module.results.reduce(into: "") { $0 += String($1.text.characters) }
+        async let parts = module.results.reduce(into: [Part]()) { $0.append(Part($1.text, $1.alternatives)) }
         try await analyze(audio, with: module)
-        return try await words.trimmingCharacters(in: .whitespacesAndNewlines)
+        return join(try await parts)
+    }
+
+    /// One result from the recognizer: a stretch of the recording, with the
+    /// other readings it considered for that stretch.
+    nonisolated struct Part {
+        let text: String
+        let alternatives: [String]
+        init(_ text: AttributedString, _ alternatives: [AttributedString]) {
+            self.text = String(text.characters)
+            self.alternatives = alternatives.map { String($0.characters) }
+        }
+    }
+
+    /// The parts' words in order, and the whole-recording readings you get by
+    /// swapping one part for one of its alternatives. Only readings with
+    /// different words count: most of what the recognizer offers differs in
+    /// punctuation or case alone ("18 grams of grapes?").
+    nonisolated static func join(_ parts: [Part]) -> Transcript {
+        let text = parts.map(\.text).joined().trimmingCharacters(in: .whitespacesAndNewlines)
+        var alternatives: [String] = [], seen: Set<String> = [words(text)]
+        for (i, part) in parts.enumerated() {
+            for alt in part.alternatives {
+                var pieces = parts.map(\.text)
+                pieces[i] = alt
+                let whole = pieces.joined().trimmingCharacters(in: .whitespacesAndNewlines)
+                if seen.insert(words(whole)).inserted { alternatives.append(whole) }
+            }
+        }
+        return Transcript(text: text, alternatives: alternatives)
+    }
+
+    /// The words alone: lowercased, without punctuation.
+    private nonisolated static func words(_ s: String) -> String {
+        s.lowercased().split { !($0.isLetter || $0.isNumber || $0 == "%") }.joined(separator: " ")
     }
 
     private static func install(_ module: any SpeechModule) async throws {
