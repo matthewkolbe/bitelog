@@ -96,6 +96,10 @@ struct ProductForm: View {
                     Label(reading ? "Reading the label…" : "Photograph the label", systemImage: "camera")
                 }
                 .disabled(reading)
+                LibraryButton(maxSide: 2000, onPhoto: read) {
+                    Label("Choose a photo of it", systemImage: "photo")
+                }
+                .disabled(reading)
                 if reading { ProgressView() }
                 if let note { Text(note).font(.callout).foregroundStyle(.secondary) }
             } footer: {
@@ -200,6 +204,10 @@ struct RecipeEditor: View {
             Section {
                 PhotoButton(maxSide: 2000, onPhoto: readPhoto) {
                     Label(reading ? "Reading the recipe…" : "Photograph a recipe", systemImage: "camera")
+                }
+                .disabled(reading || working)
+                LibraryButton(maxSide: 2000, onPhoto: readPhoto) {
+                    Label("Choose a photo or screenshot", systemImage: "photo")
                 }
                 .disabled(reading || working)
                 if reading { ProgressView() }

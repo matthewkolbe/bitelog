@@ -13,8 +13,8 @@ settings:
     SWIFT_VERSION: "6.0"
     SWIFT_DEFAULT_ACTOR_ISOLATION: MainActor
     SWIFT_APPROACHABLE_CONCURRENCY: YES
-    MARKETING_VERSION: "0.1.4"
-    CURRENT_PROJECT_VERSION: "6"
+    MARKETING_VERSION: "0.1.5"
+    CURRENT_PROJECT_VERSION: "7"
     CODE_SIGN_STYLE: Automatic
     DEVELOPMENT_TEAM: 5ZW2S867N2
 targets:
@@ -41,9 +41,7 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         # a model server on the user's own network (plain http, e.g. llama.cpp or Ollama)
         INFOPLIST_KEY_NSLocalNetworkUsageDescription: Bite Log connects to the model server you set up on your network.
-        INFOPLIST_KEY_NSMicrophoneUsageDescription: Bite Log records what you say you ate, while you hold the mic button or between presses of its Log a bite control.
-        # Log a bite (Action Button, Control Center): a Live Activity while it records
-        INFOPLIST_KEY_NSSupportsLiveActivities: YES
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Bite Log records what you say you ate, while you hold the mic button.
         INFOPLIST_KEY_NSSpeechRecognitionUsageDescription: Bite Log turns what you say into text on this phone.
         INFOPLIST_KEY_NSCameraUsageDescription: Bite Log photographs your food and package labels.
     info:
@@ -51,30 +49,6 @@ targets:
       properties:
         NSAppTransportSecurity:
           NSAllowsLocalNetworking: true
-        # Log a bite keeps recording after the control launches the app in the background
-        UIBackgroundModes: [audio]
-    dependencies:
-      - target: BiteLogWidgets
-  # The Log a bite control and its Live Activity
-  BiteLogWidgets:
-    type: app-extension
-    platform: iOS
-    sources:
-      - BiteLogWidgets
-      - BiteLog/Shared
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: app.bitelog.ios.widgets
-        PRODUCT_NAME: BiteLogWidgets
-        GENERATE_INFOPLIST_FILE: YES
-        INFOPLIST_KEY_CFBundleDisplayName: Bite Log
-        TARGETED_DEVICE_FAMILY: "1"
-        SKIP_INSTALL: YES
-    info:
-      path: BiteLogWidgets/Info.plist
-      properties:
-        NSExtension:
-          NSExtensionPointIdentifier: com.apple.widgetkit-extension
   BiteLogTests:
     type: bundle.unit-test
     platform: iOS

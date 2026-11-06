@@ -22,7 +22,6 @@ final class Logger {
     @ObservationIgnored var transcribe: (URL) async throws -> Transcriber.Transcript = Transcriber.transcribe
     private(set) var running = false
     @ObservationIgnored private var again = false
-    @ObservationIgnored private var worker: Task<Void, Never>?
 
     /// The entry was deleted while it was being processed.
     struct Gone: Error {}
@@ -53,7 +52,7 @@ final class Logger {
     func kick() {
         guard !running else { again = true; return }
         running = true
-        worker = Task {
+        Task {
             defer { running = false }
             repeat {
                 again = false
@@ -62,11 +61,6 @@ final class Logger {
                 }
             } while again
         }
-    }
-
-    /// Returns when the queue has nothing left it can process.
-    func settled() async {
-        while running, let w = worker { await w.value }
     }
 
     /// One entry. False when no model is available (the entry stays queued and

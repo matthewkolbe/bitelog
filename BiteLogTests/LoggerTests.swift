@@ -75,28 +75,6 @@ struct LoggerTests {
         #expect(hits.contains { $0["fdc_id"] == 2263890 })
     }
 
-    @Test func settledWaitsForTheQueue() async throws {
-        let id = try log.addEntry(text: "an apple")
-        logger.kick()
-        await logger.settled()
-        #expect(!logger.running)
-        let e = try #require(try log.entry(id))
-        #expect(e.status == .queued)  // no model set up
-        #expect(e.error?.hasPrefix("Waiting for a model") == true)
-        #expect(BiteCapture.outcome(e) == (.done, "Saved. It logs when a model is reachable."))
-    }
-
-    @Test func logBiteOutcomeLine() async throws {
-        let s = Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 130, "basis": "weighed"}], "#
-                          + #""meal": "snack", "summary": "red seedless"}"#)]])
-        let e = try await run("130 g of red grapes", s)
-        #expect(BiteCapture.outcome(e) == (.done, "grapes · \(Int(e.kcal.rounded())) kcal"))
-        #expect(BiteCapture.outcome(nil).0 == .failed)
-        var nothing = e
-        nothing.status = .nothing
-        #expect(BiteCapture.outcome(nothing) == (.failed, "Heard nothing."))
-    }
-
     @Test func amountsInTheUnitSaid() async throws {
         let s = Script([
             [("log_food", #"{"items": [{"fdc_id": 171265, "said": "milk", "amount": 250, "basis": "portion"}], "summary": ""}"#)],

@@ -5,27 +5,33 @@ import UIKit
 func fmt(_ x: Double) -> String { x.formatted(.number.precision(.fractionLength(0...1))) }
 
 /// A mic button that records while held and hands over the recording on release:
-/// a round icon of `size`, with "Hold to talk" under it when `labeled`.
+/// a round icon of `size`, or, when `wide`, a pill as wide as it is given that
+/// says "Hold to talk".
 struct HoldToTalk: View {
     let recorder: Recorder
     var size: CGFloat = 44
-    var labeled = false
+    var wide = false
     let onAudio: (URL) -> Void
     @State private var error: String?
     @State private var pressed = false
 
     var body: some View {
         let live = recorder.isRecording
-        VStack(spacing: 2) {
-            Image(systemName: live ? "waveform.circle.fill" : "mic.circle.fill")
-                .font(.system(size: size))
-                .symbolEffect(.pulse, isActive: live)
-            if labeled {
-                Text(live ? "Release to log it" : "Hold to talk")
-                    .font(.caption.weight(.medium)).lineLimit(1).fixedSize()
+        Group {
+            if wide {
+                Label(live ? "Release to log it" : "Hold to talk", systemImage: live ? "waveform" : "mic.fill")
+                    .font(.headline).lineLimit(1)
+                    .symbolEffect(.pulse, isActive: live)
+                    .foregroundStyle(.white)
+                    .frame(maxWidth: .infinity).frame(height: size)
+                    .background(live ? Color.red : Color.accentColor, in: .capsule)
+            } else {
+                Image(systemName: live ? "waveform.circle.fill" : "mic.circle.fill")
+                    .font(.system(size: size))
+                    .symbolEffect(.pulse, isActive: live)
+                    .foregroundStyle(live ? Color.red : Color.accentColor)
             }
         }
-            .foregroundStyle(live ? Color.red : Color.accentColor)
             .contentShape(.rect)
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { _ in
@@ -96,41 +102,52 @@ struct Dictation: View {
     }
 }
 
-/// Picks a photo from the camera (on a phone) or the library, scaled down to
-/// `maxSide` pixels as JPEG.
+/// Takes a photo with the camera, scaled down to `maxSide` pixels as JPEG.
+/// One tap opens the camera; the library is `LibraryButton`, a separate way in.
 struct PhotoButton<Label: View>: View {
     var maxSide: CGFloat = 1280
     let onPhoto: (Data) -> Void
     @ViewBuilder let label: () -> Label
     @State private var camera = false
-    @State private var library: PhotosPickerItem?
-    @State private var showLibrary = false
 
     var body: some View {
-        Menu {
-            if UIImagePickerController.isSourceTypeAvailable(.camera) {
-                Button { camera = true } label: { SwiftUI.Label("Take a photo", systemImage: "camera") }
+        Button { camera = true } label: { label() }
+            .disabled(!UIImagePickerController.isSourceTypeAvailable(.camera))
+            .fullScreenCover(isPresented: $camera) {
+                CameraPicker { img in
+                    camera = false
+                    if let img, let jpeg = shrink(img, maxSide) { onPhoto(jpeg) }
+                }
+                .ignoresSafeArea()
             }
-            Button { showLibrary = true } label: { SwiftUI.Label("Choose from library", systemImage: "photo") }
-        } label: { label() }
-        .photosPicker(isPresented: $showLibrary, selection: $library, matching: .images)
-        .onChange(of: library) { _, item in
-            guard let item else { return }
-            library = nil
-            Task {
-                if let data = try? await item.loadTransferable(type: Data.self), let img = UIImage(data: data),
-                   let jpeg = shrink(img, maxSide) {
-                    onPhoto(jpeg)
+    }
+}
+
+/// Picks a photo from the library (a recipe screenshot), scaled down to
+/// `maxSide` pixels as JPEG.
+struct LibraryButton<Label: View>: View {
+    var maxSide: CGFloat = 1280
+    let onPhoto: (Data) -> Void
+    @ViewBuilder let label: () -> Label
+    @State private var picked: PhotosPickerItem?
+    @State private var loadError: String?
+
+    var body: some View {
+        PhotosPicker(selection: $picked, matching: .images) { label() }
+            .onChange(of: picked) { _, item in
+                guard let item else { return }
+                picked = nil
+                Task {
+                    do {
+                        guard let data = try await item.loadTransferable(type: Data.self), let img = UIImage(data: data),
+                              let jpeg = shrink(img, maxSide) else { throw CocoaError(.fileReadCorruptFile) }
+                        onPhoto(jpeg)
+                    } catch {
+                        loadError = "Couldn't open that photo: \(error.localizedDescription)"
+                    }
                 }
             }
-        }
-        .fullScreenCover(isPresented: $camera) {
-            CameraPicker { img in
-                camera = false
-                if let img, let jpeg = shrink(img, maxSide) { onPhoto(jpeg) }
-            }
-            .ignoresSafeArea()
-        }
+            .alert(loadError ?? "", isPresented: Binding(get: { loadError != nil }, set: { if !$0 { loadError = nil } })) {}
     }
 }
 

@@ -69,7 +69,7 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(app.buttons.matching(done).firstMatch.waitForExistence(timeout: 300), "entry never finished")
         shot(app, "7-logged")
         app.buttons.matching(done).firstMatch.tap()  // opens in place
-        let changeButton = app.buttons["Change this entry"]
+        let changeButton = app.buttons["Change"].firstMatch
         XCTAssertTrue(changeButton.waitForExistence(timeout: 5))
         shot(app, "8-entry")
 

@@ -76,6 +76,14 @@ struct TodayView: View {
                                 pinched = []
                                 pinchReady = false
                             }))
+        // swipe right: straight into Change, or Combine for the picked; Cancel backs out
+        .gesture(EntrySwipe(qualify: { id in
+                                guard let e = shown.first(where: { $0.id == id }), EntryDetail.settled(e) else { return false }
+                                return !selecting || (picked.contains(id) && picked.count >= 2)
+                            }, frames: frames,
+                            swiped: { id in
+                                if selecting { combining = Combining(ids: picked.sorted()) } else { changing = id }
+                            }))
         .onChange(of: day) { selecting = false; picked = []; frames.frames = [:] }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
@@ -156,20 +164,17 @@ struct TodayView: View {
                     .accessibilityLabel(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Talk instead" : "Log it")
                 }
             } else {
-                ZStack {
-                    HoldToTalk(recorder: recorder, size: 64, labeled: true) { url in add(audioFile: url) }
-                    HStack {
-                        photoButton
-                        Spacer()
-                        Button {
-                            keyboard = true
-                            typing = true
-                        } label: {
-                            Image(systemName: "keyboard").font(.system(size: 20, weight: .medium))
-                                .frame(width: 44, height: 44).background(.background, in: .circle)
-                        }
-                        .accessibilityLabel("Type instead")
+                HStack(spacing: 12) {
+                    photoButton
+                    HoldToTalk(recorder: recorder, size: 44, wide: true) { url in add(audioFile: url) }
+                    Button {
+                        keyboard = true
+                        typing = true
+                    } label: {
+                        Image(systemName: "keyboard").font(.system(size: 20, weight: .medium))
+                            .frame(width: 44, height: 44).background(.background, in: .circle)
                     }
+                    .accessibilityLabel("Type instead")
                 }
             }
         }
@@ -230,7 +235,7 @@ struct TodayView: View {
     }
 
     /// One entry's row: tap opens it, or picks it while combining; swipe to
-    /// delete or change, or right to combine the picked; long-press for those
+    /// delete; right opens Change, or Combine for the picked; long-press for those
     /// and Combine. Highlighted while pinched and while picked.
     @ViewBuilder private func row(_ e: LogDB.Entry, open isOpen: Bool, combinable: Bool) -> some View {
         let canPick = EntryDetail.settled(e)
@@ -251,15 +256,6 @@ struct TodayView: View {
                            : selecting && picked.contains(e.id) ? Color.accentColor.opacity(0.15)
                            : Color(.secondarySystemGroupedBackground))
         .swipeActions { if !selecting { Button("Delete", role: .destructive) { delete(e.id) } } }
-        .swipeActions(edge: .leading) {
-            if !selecting && canPick {
-                Button { changing = e.id } label: { Label("Change", systemImage: "pencil") }.tint(.blue)
-            } else if selecting && picked.contains(e.id) && picked.count >= 2 {
-                Button { combining = Combining(ids: picked.sorted()) } label: {
-                    Label("Combine", systemImage: "arrow.down.right.and.arrow.up.left")
-                }.tint(.blue)
-            }
-        }
         .accessibilityAddTraits(selecting && picked.contains(e.id) ? .isSelected : [])
         .contextMenu {
             if !selecting && canPick {

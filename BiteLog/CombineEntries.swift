@@ -172,3 +172,52 @@ struct EntryPinch: UIGestureRecognizerRepresentable {
                                shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
     }
 }
+
+/// A swipe right on an entry: begins only when it starts moving right more
+/// than up or down, over an entry `qualify` accepts, so scrolling and the
+/// list's swipe left to delete work as usual.
+struct EntrySwipe: UIGestureRecognizerRepresentable {
+    let qualify: (Int64) -> Bool
+    let frames: RowFrames
+    /// The entry swiped far enough right.
+    let swiped: (Int64) -> Void
+
+    static let distance: CGFloat = 60
+
+    func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
+
+    func makeUIGestureRecognizer(context: Context) -> UIPanGestureRecognizer {
+        let g = UIPanGestureRecognizer()
+        g.delegate = context.coordinator
+        return g
+    }
+
+    func updateUIGestureRecognizer(_ g: UIPanGestureRecognizer, context: Context) {
+        let c = context.coordinator
+        c.shouldBegin = { g in
+            let v = g.velocity(in: nil)
+            guard v.x > 0, abs(v.y) < v.x, let id = frames.entry(at: g.location(in: nil)), qualify(id) else { return false }
+            c.entry = id
+            return true
+        }
+    }
+
+    func handleUIGestureRecognizerAction(_ g: UIPanGestureRecognizer, context: Context) {
+        guard g.state == .ended, let id = context.coordinator.entry else { return }
+        context.coordinator.entry = nil
+        if g.translation(in: nil).x > Self.distance { swiped(id) }
+    }
+
+    final class Coordinator: NSObject, UIGestureRecognizerDelegate {
+        var shouldBegin: (UIPanGestureRecognizer) -> Bool = { _ in false }
+        var entry: Int64?
+
+        func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool {
+            guard let p = g as? UIPanGestureRecognizer else { return false }
+            return shouldBegin(p)
+        }
+
+        func gestureRecognizer(_ g: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith other: UIGestureRecognizer) -> Bool { true }
+    }
+}

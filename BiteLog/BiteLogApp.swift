@@ -37,10 +37,6 @@ struct AppModel {
     let client: LLMClient
     let logger: Logger
 
-    /// Opened on first use, by the screens or by `LogBiteIntent` when the
-    /// system launches the app in the background.
-    static let shared = Result<AppModel, Error> { try AppModel.open() }
-
     static func open() throws -> AppModel {
         try AppFiles.resetUITestFiles()
         let foods = try FoodDB.app()
@@ -59,7 +55,7 @@ struct ContentView: View {
     var body: some View {
         switch model {
         case nil:
-            ProgressView().task { model = AppModel.shared }
+            ProgressView().task { model = Result { try AppModel.open() } }
         case .failure(let e):
             ContentUnavailableView("Bite Log didn't start", systemImage: "exclamationmark.triangle",
                                    description: Text(String(describing: e)))
