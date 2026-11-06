@@ -37,12 +37,16 @@ final class FoodDB {
     /// `nutrientKeys`. Every key is present; nil means USDA has no value.
     typealias Nutrients = [String: Double?]
 
-    /// An amount of a food: grams, or a portion label from `food()` times a quantity.
+    /// An amount of a food: grams, a portion label from `food()` times a
+    /// quantity, or an amount in a unit as said (see Units.swift).
     struct Amount: Equatable {
         let fdcID: Int
         var grams: Double? = nil
+        /// With a volume unit: which form's volume to use.
         var portion: String? = nil
         var quantity: Double = 1
+        var amount: Double? = nil
+        var unit: String? = nil
     }
 
     /// An amount's numbers: `values` are per `grams`, not per 100 g.
@@ -111,7 +115,7 @@ final class FoodDB {
             hidden       INTEGER NOT NULL DEFAULT 0,
             created_at   TEXT NOT NULL DEFAULT (datetime('now')),
             kind         TEXT NOT NULL DEFAULT 'label',  -- label | recipe
-            recipe       TEXT                   -- recipe: JSON {text, servings, cooked_g, ingredients}
+            recipe       TEXT                   -- recipe: JSON {text, cooked_g, ingredients}
         );
         """
 
@@ -189,10 +193,11 @@ final class FoodDB {
         guard !items.isEmpty else { throw Failure.invalid("items is empty") }
         // every item's shape is checked before any is looked up, as the server's schema does
         for (i, it) in items.enumerated() {
-            if (it.grams == nil) == (it.portion == nil) {
-                throw Failure.invalid("item \(i): give exactly one of grams or portion")
+            if let m = Self.amountError(grams: it.grams, portion: it.portion, amount: it.amount, unit: it.unit) {
+                throw Failure.invalid("item \(i): \(m)")
             }
             if let g = it.grams, g <= 0 { throw Failure.invalid("item \(i): grams must be more than 0") }
+            if let a = it.amount, a <= 0 { throw Failure.invalid("item \(i): amount must be more than 0") }
             if it.quantity <= 0 { throw Failure.invalid("item \(i): quantity must be more than 0") }
         }
         var out: [Scaled] = []
@@ -200,7 +205,9 @@ final class FoodDB {
         for it in items {
             let food = try food(it.fdcID)
             var grams = it.grams ?? 0
-            if let label = it.portion {
+            if let unit = it.unit, let amount = it.amount {
+                grams = try Self.grams(food, amount: amount, unit: unit, portion: it.portion, grams: it.grams)
+            } else if let label = it.portion {
                 let want = label.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
                 guard let p = food.portions.first(where: { $0.label.lowercased() == want }) else {
                     let labels = food.portions.isEmpty ? "none — use grams"
@@ -251,16 +258,21 @@ final class FoodDB {
     /// Best matches first. USDA names are comma segments: the food alone is
     /// "Grapes, raw" / "Fish, salmon, raw", while a dish that contains it carries
     /// extra words in the food's own segment ("Salmon salad", "Grape leaves").
-    /// Ranking: custom foods first; then most query words present, fewest extra
-    /// words sharing a segment with a query word, fewest extra words overall,
-    /// most plain descriptors, then bm25. When nothing has every word, partial
-    /// matches come back, each with `missing` set.
+    /// Ranking: most query words present, fewest extra words sharing a segment
+    /// with a query word, fewest extra words overall, most plain descriptors,
+    /// custom foods, then bm25. A custom food ranks by its closest name (its
+    /// description or one alias), so "whole milk" finds milk before "Acme whole
+    /// milk yogurt". When nothing has every word, partial matches come back,
+    /// each with `missing` set.
     func search(_ query: String, source: String? = nil, limit: Int = 15) throws -> [Hit] {
         let words = Self.words(query)
         guard !words.isEmpty else { throw Failure.noWords }
         let qstems = Set(words.map(Self.stem))
         let custom = source == nil || source == "custom" ? try searchCustom(qstems) : []
-        if source == "custom" { return Array(custom.prefix(limit)) }
+        if source == "custom" {
+            return custom.enumerated().sorted { ($0.1.key.0, $0.1.key.1, $0.1.key.2, $0.1.key.3, $0.0) < ($1.1.key.0, $1.1.key.1, $1.1.key.2, $1.1.key.3, $1.0) }
+                .prefix(limit).map(\.1.hit)
+        }
 
         var sql = """
             SELECT f.fdc_id, f.description, f.source, f.category, ROUND(f.kcal_100g, 2) AS kcal,
@@ -287,40 +299,59 @@ final class FoodDB {
             }
         }
 
-        typealias Key = (Int, Int, Int, Int, Double, Int)
-        func key(_ h: Hit, _ bm25: Double, _ order: Int) -> Key {
-            let segs = h.description.split(separator: ",", omittingEmptySubsequences: false)
-                .map { Set(Self.words(String($0)).map(Self.stem)) }
-            let all = segs.reduce(into: Set<String>()) { $0.formUnion($1) }
-            let modifiers = segs.filter { !$0.isDisjoint(with: qstems) }.reduce(0) { $0 + $1.subtracting(qstems).count }
-            let plain = Self.plain.subtracting(qstems).intersection(all).count
-            // `order` keeps SQLite's order on ties, as Python's stable sort does
-            return (-qstems.intersection(all).count, modifiers, all.subtracting(qstems).subtracting(Self.plain).count,
-                    -plain, bm25, order)
-        }
-        let ranked = found.enumerated().map { (key($1.0, $1.1, $0), $1.0) }.sorted { $0.0 < $1.0 }.map(\.1)
+        // custom foods win ties; `order` keeps the found order on equal keys, as
+        // Python's stable sort does
+        typealias Ranked = (key: Key, custom: Int, bm25: Double, order: Int, hit: Hit)
+        let all: [Ranked] = custom.map { ($0.key, 0, 0.0, 0, $0.hit) }
+            + found.map { (Self.key(Self.segs($0.0.description), qstems), 1, $0.1, 0, $0.0) }
+        let ranked = all.enumerated().map { i, r in (r.key, r.custom, r.bm25, i, r.hit) }
+            .sorted { $0.0 != $1.0 ? $0.0 < $1.0 : ($0.1, $0.2, $0.3) < ($1.1, $1.2, $1.3) }.map(\.4)
 
         // Foundation republishes some foods under a new fdc_id with identical
         // values (e.g. 2263890 / 2346412 "Grapes, red, seedless, raw"); show each once.
-        var out = Array(custom.prefix(limit))
+        var out: [Hit] = []
         var seen = Set<String>()
         for h in ranked where out.count < limit {
             let ident = "\(h.description.lowercased())|\(h.kcal)|\(h.proteinG)|\(h.fatG)|\(h.carbG)"
-            if seen.insert(ident).inserted { out.append(h) }
+            if h.source == "custom" || seen.insert(ident).inserted { out.append(h) }
         }
         return out
     }
 
+    typealias Key = (Int, Int, Int, Int)
+
+    /// Most query words present, fewest extra words sharing a segment with a
+    /// query word, fewest extra words overall, most plain descriptors.
+    static func key(_ segs: [Set<String>], _ qstems: Set<String>) -> Key {
+        let all = segs.reduce(into: Set<String>()) { $0.formUnion($1) }
+        let modifiers = segs.filter { !$0.isDisjoint(with: qstems) }.reduce(0) { $0 + $1.subtracting(qstems).count }
+        let plain = plain.subtracting(qstems).intersection(all).count
+        return (-qstems.intersection(all).count, modifiers, all.subtracting(qstems).subtracting(Self.plain).count, -plain)
+    }
+
+    /// A name's comma segments, each as its word stems.
+    static func segs(_ text: String) -> [Set<String>] {
+        text.split(separator: ",", omittingEmptySubsequences: false).map { Set(words(String($0)).map(stem)) }
+    }
+
     /// Custom foods whose name or aliases hold every query word (as a word
-    /// prefix, so 'smoke' finds 'smoked'), newest first.
-    private func searchCustom(_ qstems: Set<String>) throws -> [Hit] {
-        try db.rows("SELECT * FROM custom.food WHERE hidden=0 ORDER BY fdc_id").compactMap { r in
-            let words = Self.words("\(r["description"]?.string ?? "") \(r["aliases"]?.string ?? "")".lowercased())
+    /// prefix, so 'smoke' finds 'smoked'), each with its rank key by its closest
+    /// name, newest first.
+    private func searchCustom(_ qstems: Set<String>) throws -> [(key: Key, hit: Hit)] {
+        let sortedQ = qstems.sorted()
+        // a word a query word is a prefix of counts as that query word
+        let asQ = { (w: String) in sortedQ.first { w.hasPrefix($0) } ?? w }
+        return try db.rows("SELECT * FROM custom.food WHERE hidden=0 ORDER BY fdc_id").compactMap { r in
+            let description = r["description"]?.string ?? "", aliases = r["aliases"]?.string ?? ""
+            let words = Self.words("\(description) \(aliases)".lowercased())
             guard qstems.allSatisfy({ q in words.contains { $0.hasPrefix(q) } }) else { return nil }
-            return Hit(fdcID: r["fdc_id"]?.int ?? 0, description: r["description"]?.string ?? "", source: "custom",
+            let names = [description] + aliases.split(separator: ",").map(String.init)
+                .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+            let best = names.map { n in Self.key(Self.segs(n.lowercased()).map { Set($0.map(asQ)) }, qstems) }.min { $0 < $1 }!
+            return ((-qstems.count, best.1, best.2, best.3), Hit(fdcID: r["fdc_id"]?.int ?? 0, description: r["description"]?.string ?? "", source: "custom",
                        category: Self.category[r["kind"]?.string ?? "label"],
                        kcal: round2(r["kcal"]?.double ?? 0), proteinG: round2(r["protein_g"]?.double ?? 0),
-                       fatG: round2(r["fat_g"]?.double ?? 0), carbG: round2(r["carb_g"]?.double ?? 0))
+                       fatG: round2(r["fat_g"]?.double ?? 0), carbG: round2(r["carb_g"]?.double ?? 0)))
         }
     }
 

@@ -180,6 +180,471 @@
     }
    ],
    "error": "no food with fdc_id 999999999"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 171265,
+     "amount": 250,
+     "unit": "ml"
+    },
+    {
+     "fdc_id": 171265,
+     "amount": 2,
+     "unit": "Tbsp."
+    },
+    {
+     "fdc_id": 171265,
+     "amount": 8,
+     "unit": "fl. oz"
+    },
+    {
+     "fdc_id": 168894,
+     "amount": 3,
+     "unit": "tbsp"
+    },
+    {
+     "fdc_id": 2263890,
+     "amount": 0.25,
+     "unit": "lb"
+    },
+    {
+     "fdc_id": 170273,
+     "amount": 50,
+     "unit": "kcal"
+    },
+    {
+     "fdc_id": 170393,
+     "amount": 0.5,
+     "unit": "cup",
+     "portion": "1 cup grated"
+    },
+    {
+     "fdc_id": 2709660,
+     "amount": 0.5,
+     "unit": "cups"
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 171265,
+      "description": "Milk, whole, 3.25% milkfat, with added vitamin D",
+      "grams": 257.8,
+      "kcal": 157.28,
+      "protein_g": 8.12,
+      "fat_g": 8.38,
+      "carb_g": 12.38,
+      "fiber_g": 0.0,
+      "sugar_g": 13.02,
+      "sat_fat_g": 4.8,
+      "sodium_mg": 110.87,
+      "cholesterol_mg": 25.78
+     },
+     {
+      "fdc_id": 171265,
+      "description": "Milk, whole, 3.25% milkfat, with added vitamin D",
+      "grams": 30.5,
+      "kcal": 18.6,
+      "protein_g": 0.96,
+      "fat_g": 0.99,
+      "carb_g": 1.46,
+      "fiber_g": 0.0,
+      "sugar_g": 1.54,
+      "sat_fat_g": 0.57,
+      "sodium_mg": 13.11,
+      "cholesterol_mg": 3.05
+     },
+     {
+      "fdc_id": 171265,
+      "description": "Milk, whole, 3.25% milkfat, with added vitamin D",
+      "grams": 244.0,
+      "kcal": 148.84,
+      "protein_g": 7.69,
+      "fat_g": 7.93,
+      "carb_g": 11.71,
+      "fiber_g": 0.0,
+      "sugar_g": 12.32,
+      "sat_fat_g": 4.54,
+      "sodium_mg": 104.92,
+      "cholesterol_mg": 24.4
+     },
+     {
+      "fdc_id": 168894,
+      "description": "Wheat flour, white, all-purpose, enriched, bleached",
+      "grams": 23.4,
+      "kcal": 85.31,
+      "protein_g": 2.42,
+      "fat_g": 0.23,
+      "carb_g": 17.89,
+      "fiber_g": 0.63,
+      "sugar_g": 0.06,
+      "sat_fat_g": 0.04,
+      "sodium_mg": 0.47,
+      "cholesterol_mg": 0.0
+     },
+     {
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 113.4,
+      "kcal": 87.49,
+      "protein_g": 1.03,
+      "fat_g": 0.18,
+      "carb_g": 22.91,
+      "fiber_g": null,
+      "sugar_g": null,
+      "sat_fat_g": null,
+      "sodium_mg": 7.94,
+      "cholesterol_mg": null
+     },
+     {
+      "fdc_id": 170273,
+      "description": "Chocolate, dark, 70-85% cacao solids",
+      "grams": 8.4,
+      "kcal": 50.0,
+      "protein_g": 0.65,
+      "fat_g": 3.56,
+      "carb_g": 3.84,
+      "fiber_g": 0.91,
+      "sugar_g": 2.01,
+      "sat_fat_g": 2.05,
+      "sodium_mg": 1.67,
+      "cholesterol_mg": 0.25
+     },
+     {
+      "fdc_id": 170393,
+      "description": "Carrots, raw",
+      "grams": 55.0,
+      "kcal": 22.55,
+      "protein_g": 0.51,
+      "fat_g": 0.13,
+      "carb_g": 5.27,
+      "fiber_g": 1.54,
+      "sugar_g": 2.61,
+      "sat_fat_g": 0.02,
+      "sodium_mg": 37.95,
+      "cholesterol_mg": 0.0
+     },
+     {
+      "fdc_id": 2709660,
+      "description": "Carrots, raw",
+      "grams": 60.0,
+      "kcal": 26.4,
+      "protein_g": 0.52,
+      "fat_g": 0.14,
+      "carb_g": 5.81,
+      "fiber_g": 1.74,
+      "sugar_g": 2.85,
+      "sat_fat_g": 0.02,
+      "sodium_mg": 45.0,
+      "cholesterol_mg": 0.0
+     }
+    ],
+    "totals": {
+     "kcal": 596.47,
+     "protein_g": 21.9,
+     "fat_g": 21.54,
+     "carb_g": 81.27,
+     "fiber_g": 4.82,
+     "sugar_g": 34.41,
+     "sat_fat_g": 12.04,
+     "sodium_mg": 321.93,
+     "cholesterol_mg": 53.48
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 2263890,
+     "amount": 6,
+     "unit": "oz",
+     "grams": 999
+    },
+    {
+     "fdc_id": 172187,
+     "portion": "1 large",
+     "grams": 5
+    },
+    {
+     "fdc_id": 2263890,
+     "amount": 2,
+     "unit": "oz",
+     "portion": "1 cup",
+     "quantity": 3
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 170.1,
+      "kcal": 131.23,
+      "protein_g": 1.55,
+      "fat_g": 0.27,
+      "carb_g": 34.36,
+      "fiber_g": null,
+      "sugar_g": null,
+      "sat_fat_g": null,
+      "sodium_mg": 11.91,
+      "cholesterol_mg": null
+     },
+     {
+      "fdc_id": 172187,
+      "description": "Egg, whole, cooked, scrambled",
+      "grams": 61.0,
+      "kcal": 90.89,
+      "protein_g": 6.09,
+      "fat_g": 6.7,
+      "carb_g": 0.98,
+      "fiber_g": 0.0,
+      "sugar_g": 0.85,
+      "sat_fat_g": 2.03,
+      "sodium_mg": 88.45,
+      "cholesterol_mg": 168.97
+     },
+     {
+      "fdc_id": 2263890,
+      "description": "Grapes, red, seedless, raw",
+      "grams": 56.7,
+      "kcal": 43.74,
+      "protein_g": 0.52,
+      "fat_g": 0.09,
+      "carb_g": 11.45,
+      "fiber_g": null,
+      "sugar_g": null,
+      "sat_fat_g": null,
+      "sodium_mg": 3.97,
+      "cholesterol_mg": null
+     }
+    ],
+    "totals": {
+     "kcal": 265.86,
+     "protein_g": 8.16,
+     "fat_g": 7.06,
+     "carb_g": 46.79,
+     "sodium_mg": 104.33,
+     "fiber_g": 0.0,
+     "sugar_g": 0.85,
+     "sat_fat_g": 2.03,
+     "cholesterol_mg": 168.97
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 170393,
+     "amount": 0.5,
+     "unit": "cup"
+    }
+   ],
+   "error": "fdc_id 170393 (Carrots, raw): its volume portions differ by form; add portion, exactly one of ['1 cup chopped', '1 cup grated', '1 cup strips or slices']"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 170393,
+     "amount": 0.5,
+     "unit": "cup",
+     "portion": "1 medium"
+    }
+   ],
+   "error": "fdc_id 170393 (Carrots, raw): its volume portions differ by form; add portion, exactly one of ['1 cup chopped', '1 cup grated', '1 cup strips or slices']"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 171304,
+     "amount": 1,
+     "unit": "cup"
+    }
+   ],
+   "error": "fdc_id 171304 (Yogurt, Greek, plain, whole milk) has no volume portions to measure by; estimate grams"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 171413,
+     "amount": 3,
+     "unit": "fist"
+    }
+   ],
+   "error": "unknown unit 'fist' for fdc_id 171413 (Oil, olive, salad or cooking): use a weight (g, oz, lb, kg), a volume (tsp, tbsp, cup, fl oz, ml, l), kcal, a portion of this food (['1 tablespoon', '1 cup', '1 tsp']), or estimate grams"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 172187,
+     "amount": 2,
+     "unit": "large"
+    },
+    {
+     "fdc_id": 170393,
+     "amount": 2,
+     "unit": "Slices"
+    },
+    {
+     "fdc_id": 170393,
+     "amount": 1,
+     "unit": "small"
+    },
+    {
+     "fdc_id": 170393,
+     "amount": 1.5,
+     "unit": "medium"
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 172187,
+      "description": "Egg, whole, cooked, scrambled",
+      "grams": 122.0,
+      "kcal": 181.78,
+      "protein_g": 12.19,
+      "fat_g": 13.4,
+      "carb_g": 1.96,
+      "fiber_g": 0.0,
+      "sugar_g": 1.7,
+      "sat_fat_g": 4.06,
+      "sodium_mg": 176.9,
+      "cholesterol_mg": 337.94
+     },
+     {
+      "fdc_id": 170393,
+      "description": "Carrots, raw",
+      "grams": 6.0,
+      "kcal": 2.46,
+      "protein_g": 0.06,
+      "fat_g": 0.01,
+      "carb_g": 0.57,
+      "fiber_g": 0.17,
+      "sugar_g": 0.28,
+      "sat_fat_g": 0.0,
+      "sodium_mg": 4.14,
+      "cholesterol_mg": 0.0
+     },
+     {
+      "fdc_id": 170393,
+      "description": "Carrots, raw",
+      "grams": 50.0,
+      "kcal": 20.5,
+      "protein_g": 0.47,
+      "fat_g": 0.12,
+      "carb_g": 4.79,
+      "fiber_g": 1.4,
+      "sugar_g": 2.37,
+      "sat_fat_g": 0.01,
+      "sodium_mg": 34.5,
+      "cholesterol_mg": 0.0
+     },
+     {
+      "fdc_id": 170393,
+      "description": "Carrots, raw",
+      "grams": 91.5,
+      "kcal": 37.52,
+      "protein_g": 0.85,
+      "fat_g": 0.22,
+      "carb_g": 8.77,
+      "fiber_g": 2.56,
+      "sugar_g": 4.34,
+      "sat_fat_g": 0.03,
+      "sodium_mg": 63.13,
+      "cholesterol_mg": 0.0
+     }
+    ],
+    "totals": {
+     "kcal": 242.26,
+     "protein_g": 13.57,
+     "fat_g": 13.75,
+     "carb_g": 16.09,
+     "fiber_g": 4.13,
+     "sugar_g": 8.69,
+     "sat_fat_g": 4.1,
+     "sodium_mg": 278.67,
+     "cholesterol_mg": 337.94
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 172187,
+     "amount": 2,
+     "unit": "count"
+    }
+   ],
+   "error": "unknown unit 'count' for fdc_id 172187 (Egg, whole, cooked, scrambled): use a weight (g, oz, lb, kg), a volume (tsp, tbsp, cup, fl oz, ml, l), kcal, a portion of this food (['1 large', '1 tbsp', '1 cup']), or estimate grams"
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 172187,
+     "amount": 1,
+     "unit": "mug",
+     "grams": 240
+    },
+    {
+     "fdc_id": 172187,
+     "amount": 250,
+     "grams": 240
+    }
+   ],
+   "result": {
+    "items": [
+     {
+      "fdc_id": 172187,
+      "description": "Egg, whole, cooked, scrambled",
+      "grams": 240.0,
+      "kcal": 357.6,
+      "protein_g": 23.98,
+      "fat_g": 26.35,
+      "carb_g": 3.86,
+      "fiber_g": 0.0,
+      "sugar_g": 3.34,
+      "sat_fat_g": 7.99,
+      "sodium_mg": 348.0,
+      "cholesterol_mg": 664.8
+     },
+     {
+      "fdc_id": 172187,
+      "description": "Egg, whole, cooked, scrambled",
+      "grams": 240.0,
+      "kcal": 357.6,
+      "protein_g": 23.98,
+      "fat_g": 26.35,
+      "carb_g": 3.86,
+      "fiber_g": 0.0,
+      "sugar_g": 3.34,
+      "sat_fat_g": 7.99,
+      "sodium_mg": 348.0,
+      "cholesterol_mg": 664.8
+     }
+    ],
+    "totals": {
+     "kcal": 715.2,
+     "protein_g": 47.96,
+     "fat_g": 52.7,
+     "carb_g": 7.72,
+     "fiber_g": 0.0,
+     "sugar_g": 6.68,
+     "sat_fat_g": 15.98,
+     "sodium_mg": 696.0,
+     "cholesterol_mg": 1329.6
+    }
+   }
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 2710707,
+     "amount": 10,
+     "unit": "calories"
+    }
+   ],
+   "error": "fdc_id 2710707 (Water, tap) has no calories to measure by; give grams"
   }
  ],
  "lookup": [
@@ -851,6 +1316,78 @@
      "cholesterol_mg": 0.9
     }
    ]
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 170273,
+     "amount": 50,
+     "unit": "kcal",
+     "adjust": {
+      "why": "x",
+      "per_100g": {},
+      "carb_g": 0.3,
+      "sugar_g": 1.2
+     }
+    },
+    {
+     "fdc_id": 170273,
+     "amount": 2,
+     "unit": "oz",
+     "adjust": {
+      "why": "x",
+      "per_100g": {},
+      "fat_g": 1.1
+     }
+    }
+   ],
+   "result": [
+    {
+     "fdc_id": 170273,
+     "description": "Chocolate, dark, 70-85% cacao solids",
+     "grams": 10.7,
+     "kcal": 50.0,
+     "protein_g": 0.8280676722380758,
+     "fat_g": 4.535262943334692,
+     "carb_g": 1.4675907052588664,
+     "fiber_g": 1.159294741133306,
+     "sugar_g": 1.4675907052588664,
+     "sat_fat_g": 2.6115980432123926,
+     "sodium_mg": 2.1274969425193637,
+     "cholesterol_mg": 0.31848756624541374
+    },
+    {
+     "fdc_id": 170273,
+     "description": "Chocolate, dark, 70-85% cacao solids",
+     "grams": 56.7,
+     "kcal": 360.813,
+     "protein_g": 4.42,
+     "fat_g": 26.587000000000003,
+     "carb_g": 26.02,
+     "fiber_g": 6.18,
+     "sugar_g": 13.6,
+     "sat_fat_g": 15.279000000000002,
+     "sodium_mg": 11.34,
+     "cholesterol_mg": 1.7
+    }
+   ]
+  },
+  {
+   "items": [
+    {
+     "fdc_id": 2263890,
+     "amount": 10,
+     "unit": "kcal",
+     "adjust": {
+      "why": "x",
+      "per_100g": {},
+      "carb_g": 0.0,
+      "fat_g": 0.0,
+      "protein_g": 0.0
+     }
+    }
+   ],
+   "error": "fdc_id 2263890 (Grapes, red, seedless, raw): this version has no calories to measure by; give grams"
   }
  ],
  "custom": [
@@ -910,7 +1447,6 @@
     "name": "Miso soup",
     "aliases": "miso",
     "text": "1 tbsp miso, 150 g tofu, 350 g water",
-    "servings": 2,
     "ingredients": [
      {
       "fdc_id": 172183,
@@ -942,7 +1478,7 @@
     "portions": [
      {
       "label": "1 serving",
-      "gram_weight": 83.5
+      "gram_weight": 167.0
      }
     ],
     "ingredients": [
@@ -984,7 +1520,6 @@
    "call": "add_recipe",
    "args": {
     "name": "Miso soup",
-    "servings": 3,
     "cooked_g": 400,
     "replaces": -2,
     "ingredients": [
@@ -1017,7 +1552,7 @@
     "portions": [
      {
       "label": "1 serving",
-      "gram_weight": 133.33333333333334
+      "gram_weight": 400.0
      }
     ],
     "ingredients": [
@@ -1129,11 +1664,10 @@
      "kind": "recipe",
      "description": "Miso soup",
      "aliases": "",
-     "serving_label": "1 of 3 servings",
-     "serving_g": 133.3,
+     "serving_label": "the whole recipe",
+     "serving_g": 400.0,
      "recipe": {
       "text": "",
-      "servings": 3,
       "cooked_g": 400,
       "ingredients": [
        {
@@ -1158,14 +1692,14 @@
        }
       ]
      },
-     "kcal": 42.04,
-     "protein_g": 1.18,
-     "fat_g": 0.09,
-     "carb_g": 10.15,
+     "kcal": 126.12,
+     "protein_g": 3.54,
+     "fat_g": 0.27,
+     "carb_g": 30.45,
      "fiber_g": 0.0,
-     "sugar_g": 0.05,
+     "sugar_g": 0.14,
      "sat_fat_g": 0.0,
-     "sodium_mg": 14.57,
+     "sodium_mg": 43.7,
      "cholesterol_mg": 0.0
     },
     {
@@ -1194,6 +1728,16 @@
    },
    "result": [
     {
+     "fdc_id": 171985,
+     "description": "Fish, salmon, chinook, smoked, (lox), regular",
+     "source": "sr_legacy",
+     "category": "Finfish and Shellfish Products",
+     "kcal": 117.0,
+     "protein_g": 18.28,
+     "fat_g": 4.32,
+     "carb_g": 0.0
+    },
+    {
      "fdc_id": -4,
      "description": "Store-brand smoked salmon, farmed",
      "source": "custom",
@@ -1202,6 +1746,259 @@
      "fat_g": 10.71,
      "carb_g": 0.0,
      "kcal": 196.43
+    }
+   ]
+  },
+  {
+   "call": "add_custom_food",
+   "args": {
+    "name": "Acme whole milk yogurt",
+    "serving_label": "1 cup (170g)",
+    "serving_g": 170,
+    "kcal": 150,
+    "protein_g": 15,
+    "fat_g": 7,
+    "carb_g": 7
+   },
+   "result": {
+    "fdc_id": -5,
+    "description": "Acme whole milk yogurt",
+    "source": "custom",
+    "category": "Custom (from package label)",
+    "per_100g": {
+     "kcal": 88.24,
+     "protein_g": 8.82,
+     "fat_g": 4.12,
+     "carb_g": 4.12,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": null,
+     "sodium_mg": null,
+     "cholesterol_mg": null
+    },
+    "portions": [
+     {
+      "label": "1 serving",
+      "gram_weight": 170.0
+     }
+    ]
+   }
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "whole milk",
+    "limit": 5
+   },
+   "result": [
+    {
+     "fdc_id": 2705385,
+     "description": "Milk, whole",
+     "source": "survey",
+     "category": "Milk, whole",
+     "kcal": 61.0,
+     "protein_g": 3.27,
+     "fat_g": 3.2,
+     "carb_g": 4.63
+    },
+    {
+     "fdc_id": 2705418,
+     "description": "Yogurt, whole milk, plain",
+     "source": "survey",
+     "category": "Yogurt, regular",
+     "kcal": 78.0,
+     "protein_g": 3.82,
+     "fat_g": 4.48,
+     "carb_g": 5.57
+    },
+    {
+     "fdc_id": 171284,
+     "description": "Yogurt, plain, whole milk",
+     "source": "sr_legacy",
+     "category": "Dairy and Egg Products",
+     "kcal": 61.0,
+     "protein_g": 3.47,
+     "fat_g": 3.25,
+     "carb_g": 4.66
+    },
+    {
+     "fdc_id": 2259793,
+     "description": "Yogurt, plain, whole milk",
+     "source": "foundation",
+     "category": "Dairy and Egg Products",
+     "kcal": 77.32,
+     "protein_g": 3.82,
+     "fat_g": 4.48,
+     "carb_g": 5.57
+    },
+    {
+     "fdc_id": 2705399,
+     "description": "Milk, evaporated, whole",
+     "source": "survey",
+     "category": "Milk, whole",
+     "kcal": 134.0,
+     "protein_g": 6.81,
+     "fat_g": 7.56,
+     "carb_g": 10.04
+    }
+   ]
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "whole milk yogurt",
+    "limit": 5
+   },
+   "result": [
+    {
+     "fdc_id": 2705418,
+     "description": "Yogurt, whole milk, plain",
+     "source": "survey",
+     "category": "Yogurt, regular",
+     "kcal": 78.0,
+     "protein_g": 3.82,
+     "fat_g": 4.48,
+     "carb_g": 5.57
+    },
+    {
+     "fdc_id": 171284,
+     "description": "Yogurt, plain, whole milk",
+     "source": "sr_legacy",
+     "category": "Dairy and Egg Products",
+     "kcal": 61.0,
+     "protein_g": 3.47,
+     "fat_g": 3.25,
+     "carb_g": 4.66
+    },
+    {
+     "fdc_id": 2259793,
+     "description": "Yogurt, plain, whole milk",
+     "source": "foundation",
+     "category": "Dairy and Egg Products",
+     "kcal": 77.32,
+     "protein_g": 3.82,
+     "fat_g": 4.48,
+     "carb_g": 5.57
+    },
+    {
+     "fdc_id": 2705422,
+     "description": "Yogurt, Greek, whole milk, plain",
+     "source": "survey",
+     "category": "Yogurt, Greek",
+     "kcal": 94.0,
+     "protein_g": 8.78,
+     "fat_g": 4.39,
+     "carb_g": 4.75
+    },
+    {
+     "fdc_id": 171304,
+     "description": "Yogurt, Greek, plain, whole milk",
+     "source": "sr_legacy",
+     "category": "Dairy and Egg Products",
+     "kcal": 97.0,
+     "protein_g": 9.0,
+     "fat_g": 5.0,
+     "carb_g": 3.98
+    }
+   ]
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "acme yogurt",
+    "limit": 5
+   },
+   "result": [
+    {
+     "fdc_id": -5,
+     "description": "Acme whole milk yogurt",
+     "source": "custom",
+     "category": "Custom (from package label)",
+     "protein_g": 8.82,
+     "fat_g": 4.12,
+     "carb_g": 4.12,
+     "kcal": 88.24
+    },
+    {
+     "fdc_id": 2705414,
+     "description": "Yogurt, NFS",
+     "source": "survey",
+     "category": "Yogurt, regular",
+     "kcal": 94.0,
+     "protein_g": 6.67,
+     "fat_g": 2.87,
+     "carb_g": 10.22,
+     "missing": [
+      "acme"
+     ]
+    },
+    {
+     "fdc_id": 2705418,
+     "description": "Yogurt, whole milk, plain",
+     "source": "survey",
+     "category": "Yogurt, regular",
+     "kcal": 78.0,
+     "protein_g": 3.82,
+     "fat_g": 4.48,
+     "carb_g": 5.57,
+     "missing": [
+      "acme"
+     ]
+    },
+    {
+     "fdc_id": 171284,
+     "description": "Yogurt, plain, whole milk",
+     "source": "sr_legacy",
+     "category": "Dairy and Egg Products",
+     "kcal": 61.0,
+     "protein_g": 3.47,
+     "fat_g": 3.25,
+     "carb_g": 4.66,
+     "missing": [
+      "acme"
+     ]
+    },
+    {
+     "fdc_id": 2259793,
+     "description": "Yogurt, plain, whole milk",
+     "source": "foundation",
+     "category": "Dairy and Egg Products",
+     "kcal": 77.32,
+     "protein_g": 3.82,
+     "fat_g": 4.48,
+     "carb_g": 5.57,
+     "missing": [
+      "acme"
+     ]
+    }
+   ]
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "smoked salmon",
+    "limit": 5
+   },
+   "result": [
+    {
+     "fdc_id": 2706292,
+     "description": "Fish, salmon, smoked",
+     "source": "survey",
+     "category": "Fish",
+     "kcal": 117.0,
+     "protein_g": 18.28,
+     "fat_g": 4.32,
+     "carb_g": 0.0
+    },
+    {
+     "fdc_id": 173687,
+     "description": "Fish, salmon, chinook, smoked",
+     "source": "sr_legacy",
+     "category": "Finfish and Shellfish Products",
+     "kcal": 117.0,
+     "protein_g": 18.28,
+     "fat_g": 4.32,
+     "carb_g": 0.0
     },
     {
      "fdc_id": 171985,
@@ -1212,6 +2009,94 @@
      "protein_g": 18.28,
      "fat_g": 4.32,
      "carb_g": 0.0
+    },
+    {
+     "fdc_id": 167615,
+     "description": "Fish, salmon, king, chinook, smoked, brined (Alaska Native)",
+     "source": "sr_legacy",
+     "category": "American Indian/Alaska Native Foods",
+     "kcal": 430.0,
+     "protein_g": 39.9,
+     "fat_g": 30.0,
+     "carb_g": 0.0
+    },
+    {
+     "fdc_id": -4,
+     "description": "Store-brand smoked salmon, farmed",
+     "source": "custom",
+     "category": "Custom (from package label)",
+     "protein_g": 21.43,
+     "fat_g": 10.71,
+     "carb_g": 0.0,
+     "kcal": 196.43
+    }
+   ]
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "miso",
+    "limit": 5
+   },
+   "result": [
+    {
+     "fdc_id": 2707439,
+     "description": "Miso",
+     "source": "survey",
+     "category": "Soy-based condiments",
+     "kcal": 198.0,
+     "protein_g": 12.79,
+     "fat_g": 6.01,
+     "carb_g": 25.37
+    },
+    {
+     "fdc_id": -3,
+     "description": "Miso soup",
+     "source": "custom",
+     "category": "Recipe (household, from its ingredients)",
+     "protein_g": 0.89,
+     "fat_g": 0.07,
+     "carb_g": 7.61,
+     "kcal": 31.53
+    },
+    {
+     "fdc_id": 2707438,
+     "description": "Miso sauce",
+     "source": "survey",
+     "category": "Soy-based condiments",
+     "kcal": 429.0,
+     "protein_g": 3.43,
+     "fat_g": 41.0,
+     "carb_g": 13.99
+    },
+    {
+     "fdc_id": 2707455,
+     "description": "Soup, miso or tofu",
+     "source": "survey",
+     "category": "Ramen and Asian broth-based soups",
+     "kcal": 24.0,
+     "protein_g": 2.21,
+     "fat_g": 0.85,
+     "carb_g": 2.3
+    }
+   ]
+  },
+  {
+   "call": "search_foods",
+   "args": {
+    "query": "yogurt",
+    "source": "custom"
+   },
+   "result": [
+    {
+     "fdc_id": -5,
+     "description": "Acme whole milk yogurt",
+     "source": "custom",
+     "category": "Custom (from package label)",
+     "protein_g": 8.82,
+     "fat_g": 4.12,
+     "carb_g": 4.12,
+     "kcal": 88.24
     }
    ]
   },
@@ -1238,15 +2123,31 @@
    "args": {},
    "result": [
     {
+     "fdc_id": -5,
+     "kind": "label",
+     "description": "Acme whole milk yogurt",
+     "aliases": "",
+     "serving_label": "1 cup (170g)",
+     "serving_g": 170.0,
+     "kcal": 150.0,
+     "protein_g": 15.0,
+     "fat_g": 7.0,
+     "carb_g": 7.0,
+     "fiber_g": null,
+     "sugar_g": null,
+     "sat_fat_g": null,
+     "sodium_mg": null,
+     "cholesterol_mg": null
+    },
+    {
      "fdc_id": -3,
      "kind": "recipe",
      "description": "Miso soup",
      "aliases": "",
-     "serving_label": "1 of 3 servings",
-     "serving_g": 133.3,
+     "serving_label": "the whole recipe",
+     "serving_g": 400.0,
      "recipe": {
       "text": "",
-      "servings": 3,
       "cooked_g": 400,
       "ingredients": [
        {
@@ -1271,14 +2172,14 @@
        }
       ]
      },
-     "kcal": 42.04,
-     "protein_g": 1.18,
-     "fat_g": 0.09,
-     "carb_g": 10.15,
+     "kcal": 126.12,
+     "protein_g": 3.54,
+     "fat_g": 0.27,
+     "carb_g": 30.45,
      "fiber_g": 0.0,
-     "sugar_g": 0.05,
+     "sugar_g": 0.14,
      "sat_fat_g": 0.0,
-     "sodium_mg": 14.57,
+     "sodium_mg": 43.7,
      "cholesterol_mg": 0.0
     },
     {

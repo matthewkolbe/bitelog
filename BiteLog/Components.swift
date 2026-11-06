@@ -4,35 +4,29 @@ import UIKit
 
 func fmt(_ x: Double) -> String { x.formatted(.number.precision(.fractionLength(0...1))) }
 
-/// A mic button that records while held and hands over the recording on release.
-/// `pill` is the big "Hold to talk" bar; otherwise a round icon of `size`.
+/// A mic button that records while held and hands over the recording on release:
+/// a round icon of `size`, with "Hold to talk" under it when `labeled`.
 struct HoldToTalk: View {
     let recorder: Recorder
     var size: CGFloat = 44
-    var pill = false
+    var labeled = false
     let onAudio: (URL) -> Void
     @State private var error: String?
     @State private var pressed = false
 
     var body: some View {
         let live = recorder.isRecording
-        Group {
-            if pill {
-                Label(live ? "Release to log it" : "Hold to talk", systemImage: live ? "waveform" : "mic.fill")
-                    .font(.headline)
-                    .foregroundStyle(.white)
-                    .frame(maxWidth: .infinity, minHeight: size)
-                    .background(live ? Color.red : Color.accentColor, in: .capsule)
-                    .symbolEffect(.pulse, isActive: live)
-                    .contentShape(.capsule)
-            } else {
-                Image(systemName: live ? "waveform.circle.fill" : "mic.circle.fill")
-                    .font(.system(size: size))
-                    .foregroundStyle(live ? Color.red : Color.accentColor)
-                    .symbolEffect(.pulse, isActive: live)
-                    .contentShape(.circle)
+        VStack(spacing: 2) {
+            Image(systemName: live ? "waveform.circle.fill" : "mic.circle.fill")
+                .font(.system(size: size))
+                .symbolEffect(.pulse, isActive: live)
+            if labeled {
+                Text(live ? "Release to log it" : "Hold to talk")
+                    .font(.caption.weight(.medium)).lineLimit(1).fixedSize()
             }
         }
+            .foregroundStyle(live ? Color.red : Color.accentColor)
+            .contentShape(.rect)
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { _ in
                     guard !pressed else { return }
@@ -80,7 +74,7 @@ struct Dictation: View {
     @State private var status = "or hold to say it"
 
     var body: some View {
-        HStack(spacing: 12) {
+        VStack(spacing: 6) {
             HoldToTalk(recorder: recorder, size: 34) { url in
                 status = "Transcribing…"
                 Task {
@@ -95,6 +89,7 @@ struct Dictation: View {
                     }
                 }
             }
+            .frame(maxWidth: .infinity)
             if recorder.isRecording { RecordingBanner(recorder: recorder, hint: "release when done") }
             else { Text(status).font(.callout).foregroundStyle(.secondary) }
         }

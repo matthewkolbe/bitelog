@@ -95,7 +95,7 @@ struct NutritionTests {
             case "add_recipe":
                 try check(c) {
                     try db.addRecipe(name: a["name"] as! String, aliases: a["aliases"] as? String ?? "",
-                                     text: a["text"] as? String ?? "", servings: num("servings") ?? 1, cookedG: num("cooked_g"),
+                                     text: a["text"] as? String ?? "", cookedG: num("cooked_g"),
                                      ingredients: (a["ingredients"] as! [[String: Any]]).map {
                                          .init(fdcID: $0["fdc_id"] as! Int, grams: $0["grams"] as! Double, said: $0["said"] as? String)
                                      },
@@ -121,7 +121,9 @@ struct NutritionTests {
                     }
                 }
             case "search_foods":
-                try check(c) { try db.search(a["query"] as! String) } match: { got, want in
+                try check(c) {
+                    try db.search(a["query"] as! String, source: a["source"] as? String, limit: a["limit"] as? Int ?? 15)
+                } match: { got, want in
                     #expect(got.map(\.fdcID) == (want as! [[String: Any]]).map { $0["fdc_id"] as! Int })
                 }
             case "remove_custom_food":
@@ -167,7 +169,8 @@ struct NutritionTests {
 
     private func amount(_ d: [String: Any]) -> FoodDB.Amount {
         .init(fdcID: d["fdc_id"] as! Int, grams: d["grams"] as? Double, portion: d["portion"] as? String,
-              quantity: d["quantity"] as? Double ?? 1)
+              quantity: d["quantity"] as? Double ?? 1, amount: (d["amount"] as? NSNumber)?.doubleValue,
+              unit: d["unit"] as? String)
     }
 
     private func version(_ v: Any?) -> Nutrition.Version {

@@ -15,7 +15,7 @@ extension FoodDB {
         let servingLabel: String?
         /// Rounded to 0.1 g.
         let servingG: Double
-        /// A recipe's {text, servings, cooked_g, ingredients}.
+        /// A recipe's {text, cooked_g, ingredients}.
         let recipe: JSON?
         let perServing: Nutrients
     }
@@ -24,6 +24,8 @@ extension FoodDB {
         let fdcID: Int
         let grams: Double
         var said: String? = nil
+        /// The user's version of the food (a logged item's), applied to its numbers.
+        var adjust: Nutrition.Adjust? = nil
     }
 
     /// A saved recipe: the new food, each ingredient's numbers, and the totals.
@@ -73,28 +75,40 @@ extension FoodDB {
 
     /// A recipe as a food, from its ingredients (as added to the pot, water and
     /// broth included). Per 100 g = totals / cooked_g when the dish was weighed,
-    /// else totals / the summed ingredient grams; '1 serving' = that weight /
-    /// servings. `replaces` hides an older version (an edit).
-    func addRecipe(name: String, aliases: String = "", text: String = "", servings: Double = 1, cookedG: Double? = nil,
+    /// else totals / the summed ingredient grams; its one serving is the whole
+    /// recipe, that weight. `replaces` hides an older version (an edit).
+    func addRecipe(name: String, aliases: String = "", text: String = "", cookedG: Double? = nil,
                    ingredients: [RecipeLine], replaces: Int? = nil) throws -> SavedRecipe {
         try checkName(name)
         guard !ingredients.isEmpty else { throw Failure.invalid("ingredients is empty") }
-        guard servings > 0 else { throw Failure.invalid("servings must be more than 0") }
         if let c = cookedG, c <= 0 { throw Failure.invalid("cooked_g must be more than 0") }
         let calc = try nutrition(ingredients.map { Amount(fdcID: $0.fdcID, grams: $0.grams) })
+        // each line's version, then the totals again, the way nutrition() sums them
+        let items = zip(calc.items, ingredients).map { s, i in
+            var s = s
+            s.values = Nutrition.apply(i.adjust, to: s.values)
+            return s
+        }
+        var totals: [String: Double] = [:]
+        for s in items {
+            for k in Self.nutrientKeys { if let v = s.values[k] ?? nil { totals[k] = round2((totals[k] ?? 0) + v) } }
+        }
         let basis = cookedG ?? ingredients.reduce(0) { $0 + $1.grams }
-        let per = Dictionary(uniqueKeysWithValues: Self.nutrientKeys.map { k in (k, calc.totals[k].map { $0 * 100 / basis }) })
-        let lines: [JSON] = zip(ingredients, calc.items).map { i, n in
-            ["said": i.said.map(JSON.string) ?? .null, "fdc_id": .number(Double(n.fdcID)), "description": .string(n.description),
-             "grams": .number(n.grams), "kcal": num(n.values["kcal"]), "protein_g": num(n.values["protein_g"]),
-             "fat_g": num(n.values["fat_g"]), "carb_g": num(n.values["carb_g"])]
+        let per = Dictionary(uniqueKeysWithValues: Self.nutrientKeys.map { k in (k, totals[k].map { $0 * 100 / basis }) })
+        let lines: [JSON] = zip(ingredients, items).map { i, n in
+            var line: JSON = ["said": i.said.map(JSON.string) ?? .null, "fdc_id": .number(Double(n.fdcID)),
+                              "description": .string(n.description), "grams": .number(n.grams), "kcal": num(n.values["kcal"]),
+                              "protein_g": num(n.values["protein_g"]), "fat_g": num(n.values["fat_g"]),
+                              "carb_g": num(n.values["carb_g"])]
+            if let a = i.adjust { line = line.merging(["version": .string(a.why)]) }
+            return line
         }
         try checkReplaces(replaces)
-        let recipe: JSON = ["text": .string(text), "servings": .number(servings),
+        let recipe: JSON = ["text": .string(text),
                             "cooked_g": cookedG.map(JSON.number) ?? .null, "ingredients": .array(lines)]
-        let id = try insert(name: name, aliases: aliases, servingLabel: "1 of \(Self.g(servings)) servings",
-                            servingG: basis / servings, per: per, kind: "recipe", recipe: recipe, replaces: replaces)
-        return SavedRecipe(food: try food(id), ingredients: lines, totals: calc.totals)
+        let id = try insert(name: name, aliases: aliases, servingLabel: "the whole recipe",
+                            servingG: basis, per: per, kind: "recipe", recipe: recipe, replaces: replaces)
+        return SavedRecipe(food: try food(id), ingredients: lines, totals: totals)
     }
 
     /// Hides it from search; log items that use it keep working.

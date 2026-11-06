@@ -44,12 +44,18 @@ final class LogDB {
         var edits: [String] = []
         /// A change request waiting its turn.
         var pendingEdit: String?
+        /// The profile to run its next turn with, and only it: a redo with a
+        /// chosen model. Cleared when that turn ends.
+        var useProfile: UUID?
+        /// The user's name for it ("Smoothie"), set when entries are combined.
+        var title: String?
         var items: [Item] = []
 
         var kcal: Double { items.reduce(0) { $0 + (($1.values["kcal"] ?? nil) ?? 0) } }
         var said: String { [transcript, text].compactMap { $0 }.joined(separator: " ") }
         /// What was eaten, one line: the items when logged, else what was said.
         var what: String {
+            if let title { return title }
             if status == .done || pendingEdit != nil, !items.isEmpty {
                 return items.map { $0.said ?? $0.description }.joined(separator: ", ")
             }
@@ -101,7 +107,9 @@ final class LogDB {
             meal       TEXT,
             model      TEXT,                   -- the profile that handled it
             edits      TEXT,                   -- JSON list of the change requests applied, in order
-            pending_edit TEXT                  -- a change request (its text) waiting its turn
+            pending_edit TEXT,                 -- a change request (its text) waiting its turn
+            use_profile TEXT,                  -- a profile id: run the next turn with this model only
+            title      TEXT                    -- the user's name for it, given when entries are combined
         );
         CREATE INDEX IF NOT EXISTS entry_day ON entry(day);
         CREATE TABLE IF NOT EXISTS item (
@@ -136,6 +144,12 @@ final class LogDB {
         if !(try db.columns("main", "entry")).contains("alternatives") {
             try db.execute("ALTER TABLE entry ADD COLUMN alternatives TEXT")
         }
+        if !(try db.columns("main", "entry")).contains("use_profile") {
+            try db.execute("ALTER TABLE entry ADD COLUMN use_profile TEXT")
+        }
+        if !(try db.columns("main", "entry")).contains("title") {
+            try db.execute("ALTER TABLE entry ADD COLUMN title TEXT")
+        }
     }
 
     static func app() throws -> LogDB {
@@ -159,11 +173,13 @@ final class LogDB {
 
     /// Redo with the model from scratch: the items and summary go; the changes
     /// the user asked for stay, and the redo applies them again.
-    func redo(_ id: Int64) throws {
+    /// Logs the entry again from what was said: with `profile` only, when given,
+    /// else the first model that answers.
+    func redo(_ id: Int64, profile: UUID? = nil) throws {
         try db.transaction {
             try db.run("DELETE FROM item WHERE entry_id=?", [.int(id)])
-            try db.run("UPDATE entry SET status='queued', error=NULL, reply=NULL, pending_edit=NULL WHERE id=?",
-                       [.int(id)])
+            try db.run("UPDATE entry SET status='queued', error=NULL, reply=NULL, pending_edit=NULL, use_profile=? WHERE id=?",
+                       [profile.map { .text($0.uuidString) } ?? .null, .int(id)])
         }
         revision += 1
     }
@@ -183,14 +199,6 @@ final class LogDB {
 
     func deleteItem(_ itemID: Int64) throws {
         try db.run("DELETE FROM item WHERE id=?", [.int(itemID)])
-        revision += 1
-    }
-
-    /// Adds an item by hand at the end of an entry.
-    func appendItem(_ entryID: Int64, _ it: NewItem) throws {
-        let next = try db.rows("SELECT COALESCE(MAX(ord), -1) + 1 AS n FROM item WHERE entry_id=?", [.int(entryID)])
-            .first?["n"]?.int ?? 0
-        try insertItem(entryID, ord: next, it)
         revision += 1
     }
 
@@ -226,6 +234,51 @@ final class LogDB {
             for (i, it) in items.enumerated() { try insertItem(entryID, ord: i, it) }
         }
         revision += 1
+    }
+
+    /// Entries made one: the earliest keeps its time and meal and takes every
+    /// item, in time order, and the others are deleted. What was said becomes
+    /// its text, joined, so a redo logs the whole thing again; recordings go,
+    /// since their words are kept, and the first photo stays. Only logged
+    /// entries of one day, none with a change waiting.
+    func combine(_ ids: [Int64], title: String?) throws -> Int64 {
+        let es = try Set(ids).map { id in
+            guard let e = try entry(id) else { throw SQLite.Failure.sqlite("entry \(id) is gone") }
+            return e
+        }.sorted { ($0.createdAt, $0.id) < ($1.createdAt, $1.id) }
+        guard es.count >= 2 else { throw SQLite.Failure.sqlite("Pick two or more entries to combine.") }
+        guard es.allSatisfy({ $0.status == .done && $0.pendingEdit == nil }) else {
+            throw SQLite.Failure.sqlite("Only entries that are done logging can be combined.")
+        }
+        guard Set(es.map(\.day)).count == 1 else { throw SQLite.Failure.sqlite("Only entries of one day can be combined.") }
+        let keep = es[0], rest = es.dropFirst()
+        let photo = es.lazy.compactMap(\.photo).first
+        let said = es.map(\.said).filter { !$0.isEmpty }.joined(separator: "\n")
+        let models = es.compactMap(\.model).reduce(into: [String]()) { if !$0.contains($1) { $0.append($1) } }
+        let edits = String(decoding: try JSONEncoder().encode(es.flatMap(\.edits)), as: UTF8.self)
+        let t = title?.trimmingCharacters(in: .whitespacesAndNewlines)
+        func opt(_ s: String?) -> SQLite.Value { s.map(SQLite.Value.text) ?? .null }
+        try db.transaction {
+            var ord = 0
+            for e in es {
+                for i in e.items {
+                    try db.run("UPDATE item SET entry_id=?, ord=? WHERE id=?", [.int(keep.id), .int(Int64(ord)), .int(i.id)])
+                    ord += 1
+                }
+            }
+            try db.run("""
+                UPDATE entry SET title=?, text=?, transcript=NULL, alternatives=NULL, audio=NULL, photo=?, reply=NULL,
+                error=NULL, model=?, edits=? WHERE id=?
+                """, [opt(t?.isEmpty == false ? t : nil), opt(said.isEmpty ? nil : said), opt(photo),
+                      opt(models.isEmpty ? nil : models.joined(separator: ", ")), .text(edits), .int(keep.id)])
+            for e in rest { try db.run("DELETE FROM entry WHERE id=?", [.int(e.id)]) }
+        }
+        for e in es {
+            Media.remove(e.audio)
+            if e.photo != photo { Media.remove(e.photo) }
+        }
+        revision += 1
+        return keep.id
     }
 
     /// Deletes the entry, its items, and its recording and photo.
@@ -282,15 +335,27 @@ final class LogDB {
         }
     }
 
+    private func item(_ i: SQLite.Row) throws -> Item {
+        Item(id: Int64(i["id"]?.int ?? 0), fdcID: i["fdc_id"]?.int ?? 0, description: i["description"]?.string ?? "",
+             said: i["said"]?.string, grams: i["grams"]?.double ?? 0, basis: i["basis"]?.string ?? "",
+             note: i["note"]?.string,
+             adjust: try i["adjust"]?.string.map { try JSONDecoder().decode(Nutrition.Adjust.self, from: Data($0.utf8)) },
+             values: Dictionary(uniqueKeysWithValues: FoodDB.nutrientKeys.map { ($0, i[$0]?.double) }))
+    }
+
+    /// Items of logged entries recorded in [since, before), other than this
+    /// entry, latest first.
+    func recentItems(excluding id: Int64, since: Date, before: Date) throws -> [Item] {
+        try db.rows("""
+            SELECT i.* FROM item i JOIN entry e ON e.id = i.entry_id
+            WHERE e.id != ? AND e.status = 'done' AND e.created_at >= ? AND e.created_at < ?
+            ORDER BY e.created_at DESC, e.id DESC, i.ord
+            """, [.int(id), .real(since.timeIntervalSince1970), .real(before.timeIntervalSince1970)]).map(item)
+    }
+
     private func entry(_ r: SQLite.Row) throws -> Entry {
         let id = Int64(r["id"]?.int ?? 0)
-        let items = try db.rows("SELECT * FROM item WHERE entry_id=? ORDER BY ord", [.int(id)]).map { i in
-            Item(id: Int64(i["id"]?.int ?? 0), fdcID: i["fdc_id"]?.int ?? 0, description: i["description"]?.string ?? "",
-                 said: i["said"]?.string, grams: i["grams"]?.double ?? 0, basis: i["basis"]?.string ?? "",
-                 note: i["note"]?.string,
-                 adjust: try i["adjust"]?.string.map { try JSONDecoder().decode(Nutrition.Adjust.self, from: Data($0.utf8)) },
-                 values: Dictionary(uniqueKeysWithValues: FoodDB.nutrientKeys.map { ($0, i[$0]?.double) }))
-        }
+        let items = try db.rows("SELECT * FROM item WHERE entry_id=? ORDER BY ord", [.int(id)]).map(item)
         return Entry(id: id, createdAt: Date(timeIntervalSince1970: r["created_at"]?.double ?? 0),
                      tz: r["tz"]?.string ?? TimeZone.current.identifier, day: r["day"]?.string ?? "",
                      text: r["text"]?.string, transcript: r["transcript"]?.string,
@@ -300,7 +365,8 @@ final class LogDB {
                      status: Status(rawValue: r["status"]?.string ?? "") ?? .error, reply: r["reply"]?.string,
                      error: r["error"]?.string, meal: r["meal"]?.string, model: r["model"]?.string,
                      edits: try r["edits"]?.string.map { try JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [],
-                     pendingEdit: r["pending_edit"]?.string, items: items)
+                     pendingEdit: r["pending_edit"]?.string, useProfile: r["use_profile"]?.string.flatMap(UUID.init),
+                     title: r["title"]?.string, items: items)
     }
 
     // MARK: - export and load
@@ -310,12 +376,12 @@ final class LogDB {
                            "item": ["id", "entry_id", "ord", "fdc_id", "description", "grams", "basis"]]
 
     /// A standalone copy of the log for an export: without which model handled
-    /// each entry, so the file holds nothing about the model setup. Secure
+    /// or will handle each entry, so the file holds nothing about the model setup. Secure
     /// delete overwrites the old values rather than leaving them in free pages.
     func copy(to url: URL) throws {
         try db.copy("main", to: url.path)
         let out = try SQLite(path: url.path, readOnly: false)
-        try out.execute("PRAGMA journal_mode = DELETE; PRAGMA secure_delete = ON; UPDATE entry SET model = NULL; VACUUM;")
+        try out.execute("PRAGMA journal_mode = DELETE; PRAGMA secure_delete = ON; UPDATE entry SET model = NULL, use_profile = NULL; VACUUM;")
     }
 
     /// Replaces the whole log with another log file's.

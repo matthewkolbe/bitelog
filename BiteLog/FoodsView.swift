@@ -177,9 +177,9 @@ struct ProductForm: View {
     }
 }
 
-/// A recipe: your ingredient list -> the model's breakdown into foods (reviewed
-/// and adjustable) -> saved as one of your foods. Editing one saves a new
-/// version and hides the old.
+/// A recipe: your ingredient list -> the model's breakdown into foods, saved as
+/// one of your foods: the whole recipe, by its weight, so any amount eaten is
+/// grams of it. Editing one saves a new version and hides the old.
 struct RecipeEditor: View {
     let model: AppModel
     let editing: FoodDB.Custom?
@@ -188,110 +188,56 @@ struct RecipeEditor: View {
     @State private var name = ""
     @State private var aliases = ""
     @State private var text = ""
-    @State private var servings: Double? = 1
     @State private var cookedG: Double?
-    @State private var draft: Logger.RecipeDraft?
-    @State private var working = false
+    @State private var task: Task<Void, Never>?
     @State private var reading = false
     @State private var error: String?
     @State private var recorder = Recorder()
+    private var working: Bool { task != nil }
 
     var body: some View {
         Form {
-            if let d = draft {
-                review(d)
-            } else {
-                form
+            Section {
+                PhotoButton(maxSide: 2000, onPhoto: readPhoto) {
+                    Label(reading ? "Reading the recipe…" : "Photograph a recipe", systemImage: "camera")
+                }
+                .disabled(reading || working)
+                if reading { ProgressView() }
+            } footer: {
+                Text("A model that reads photos copies the ingredients in. A recipe over two pages takes two photos.")
             }
+            Section {
+                TextField("Name, e.g. My miso soup", text: $name)
+                TextField("Other names you call it", text: $aliases)
+            } footer: {
+                Text("List what goes in, with amounts. Saving looks each ingredient up.")
+            }
+            Section("Ingredients") {
+                TextField("1 tbsp white miso\n150 g firm tofu\n2 scallions\n350 g water", text: $text, axis: .vertical)
+                    .lineLimit(5...20)
+                Dictation(recorder: recorder, text: $text, separator: "\n")
+            }
+            Section {
+                LabeledContent("Finished weight (g)") {
+                    TextField("optional: weigh the pot", value: $cookedG, format: .number).keyboardType(.decimalPad)
+                        .multilineTextAlignment(.trailing)
+                }
+            }
+            if working { HStack { ProgressView(); Text("Looking up ingredients…") } }
             if let error { Text(error).foregroundStyle(.red) }
         }
-        .navigationTitle(draft != nil ? name : editing != nil ? "Edit recipe" : "Add a recipe")
+        .disabled(working)
+        .navigationTitle(editing != nil ? "Edit recipe" : "Add a recipe")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden()
         .toolbar {
+            // cancelling while it works stops the lookup; nothing is saved
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { task?.cancel(); dismiss() } }
             ToolbarItem(placement: .confirmationAction) {
-                if draft != nil {
-                    Button("Save recipe", action: save)
-                } else {
-                    Button(working ? "Working…" : "Work it out", action: workOut).disabled(working)
-                }
+                Button(working ? "Saving…" : "Save", action: save).disabled(working || reading)
             }
         }
         .onAppear(perform: load)
-    }
-
-    @ViewBuilder private var form: some View {
-        Section {
-            PhotoButton(maxSide: 2000, onPhoto: readPhoto) {
-                Label(reading ? "Reading the recipe…" : "Photograph a recipe", systemImage: "camera")
-            }
-            .disabled(reading)
-            if reading { ProgressView() }
-        } footer: {
-            Text("A model that reads photos copies the ingredients in. A recipe over two pages takes two photos.")
-        }
-        Section {
-            TextField("Name, e.g. My miso soup", text: $name)
-            TextField("Other names you call it", text: $aliases)
-        } footer: {
-            Text("List what goes in, with amounts, or photograph it. The model looks each ingredient up; "
-                 + "you check it before saving.")
-        }
-        Section("Ingredients") {
-            TextField("1 tbsp white miso\n150 g firm tofu\n2 scallions\n350 g water", text: $text, axis: .vertical)
-                .lineLimit(5...20)
-            Dictation(recorder: recorder, text: $text, separator: "\n")
-        }
-        Section {
-            LabeledContent("Servings it makes") {
-                TextField("1", value: $servings, format: .number).keyboardType(.decimalPad).multilineTextAlignment(.trailing)
-            }
-            LabeledContent("Finished weight (g)") {
-                TextField("optional: weigh the pot", value: $cookedG, format: .number).keyboardType(.decimalPad)
-                    .multilineTextAlignment(.trailing)
-            }
-        }
-        if working { HStack { ProgressView(); Text("Looking up ingredients…") } }
-    }
-
-    @ViewBuilder private func review(_ d: Logger.RecipeDraft) -> some View {
-        Section {
-            ForEach(Array(d.ingredients.enumerated()), id: \.offset) { n, i in
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(i.said ?? i.description)
-                    Text(i.description + (i.note.map { " · \($0)" } ?? "")).font(.caption).foregroundStyle(.secondary)
-                    HStack {
-                        TextField("g", value: Binding(get: { draft?.ingredients[n].grams },
-                                                      set: { if let g = $0, g > 0 { draft?.ingredients[n].grams = g } }),
-                                  format: .number)
-                            .keyboardType(.decimalPad).frame(width: 80).textFieldStyle(.roundedBorder)
-                        Text("g")
-                        Spacer()
-                        Text("\(Int(i.value("kcal").rounded())) kcal").monospacedDigit()
-                    }
-                }
-            }
-            .onDelete { draft?.ingredients.remove(atOffsets: $0) }
-            ForEach(d.leftOut, id: \.said) { l in
-                VStack(alignment: .leading) {
-                    Text(l.said)
-                    Text("Not counted: \(l.reason)").font(.caption).foregroundStyle(.secondary)
-                }
-            }
-        } header: {
-            Text("Check each match and amount")
-        } footer: {
-            totals(d)
-        }
-        Section { Button("Edit the recipe text") { draft = nil } }
-    }
-
-    private func totals(_ d: Logger.RecipeDraft) -> some View {
-        let t = { (k: String) in d.ingredients.reduce(0) { $0 + $1.value(k) } }
-        let g = d.ingredients.reduce(0) { $0 + $1.grams }
-        let sv = servings ?? 1
-        return Text("Whole recipe: \(Int(t("kcal").rounded())) kcal · \(fmt(g)) g of ingredients\n"
-                    + "Per serving (\(fmt((cookedG ?? g) / sv)) g, 1 of \(fmt(sv))): \(Int((t("kcal") / sv).rounded())) kcal · "
-                    + "P \(fmt(t("protein_g") / sv)) F \(fmt(t("fat_g") / sv)) C \(fmt(t("carb_g") / sv))")
     }
 
     private func load() {
@@ -299,12 +245,11 @@ struct RecipeEditor: View {
         name = f.description
         aliases = f.aliases
         text = r["text"]?.string ?? ""
-        servings = r["servings"]?.double ?? 1
         cookedG = r["cooked_g"]?.double
     }
 
-    /// Fills an empty name and servings; the ingredients go after any already
-    /// there, so a recipe over two pages takes two photos.
+    /// Fills an empty name; the ingredients go after any already there, so a
+    /// recipe over two pages takes two photos.
     private func readPhoto(_ jpeg: Data) {
         reading = true
         error = nil
@@ -313,7 +258,6 @@ struct RecipeEditor: View {
             do {
                 let r = try await model.logger.readRecipePhoto(jpeg)
                 if let n = r.name, name.trimmingCharacters(in: .whitespaces).isEmpty { name = n }
-                if let s = r.servings, servings == nil || servings == 1 { servings = s }
                 let t = text.trimmingCharacters(in: .whitespacesAndNewlines)
                 text = t.isEmpty ? r.text : t + "\n" + r.text
             } catch {
@@ -322,29 +266,25 @@ struct RecipeEditor: View {
         }
     }
 
-    private func workOut() {
+    private func save() {
         let n = name.trimmingCharacters(in: .whitespacesAndNewlines), t = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard n.count >= 2 else { error = "Name the recipe."; return }
         guard t.count >= 3 else { error = "List the ingredients."; return }
-        guard (servings ?? 0) > 0 else { error = "Enter how many servings it makes."; return }
-        working = true
         error = nil
-        Task {
-            defer { working = false }
-            do { draft = try await model.logger.recipe(name: n, text: t) } catch { self.error = String(describing: error) }
-        }
-    }
-
-    private func save() {
-        guard let d = draft, !d.ingredients.isEmpty else { error = "No ingredients left."; return }
-        do {
-            _ = try model.foods.addRecipe(name: name, aliases: aliases, text: text, servings: servings ?? 1, cookedG: cookedG,
-                                          ingredients: d.ingredients.map { .init(fdcID: $0.fdcID, grams: $0.grams, said: $0.said) },
-                                          replaces: editing?.fdcID)
-            done()
-            dismiss()
-        } catch {
-            self.error = String(describing: error)
+        task = Task {
+            defer { task = nil }
+            do {
+                let d = try await model.logger.recipe(name: n, text: t)
+                try Task.checkCancellation()
+                _ = try model.foods.addRecipe(name: n, aliases: aliases, text: t, cookedG: cookedG,
+                                              ingredients: d.ingredients.map { .init(fdcID: $0.fdcID, grams: $0.grams, said: $0.said) },
+                                              replaces: editing?.fdcID)
+                done()
+                dismiss()
+            } catch is CancellationError {
+            } catch {
+                self.error = String(describing: error)
+            }
         }
     }
 }

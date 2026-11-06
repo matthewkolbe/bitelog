@@ -99,12 +99,8 @@ final class SettingsUITests: XCTestCase {
         ingredients.tap()
         ingredients.typeText("40 g rolled oats, 200 g whole milk, 1 banana")
         shot(app, "11-recipe")
-        app.buttons["Work it out"].tap()
-        let save = app.buttons["Save recipe"]
-        XCTAssertTrue(save.waitForExistence(timeout: 300), "no breakdown")
-        shot(app, "12-review")
-        save.tap()
-        XCTAssertTrue(app.staticTexts["Breakfast oats"].waitForExistence(timeout: 10))
+        app.buttons["Save"].tap()
+        XCTAssertTrue(app.staticTexts["Breakfast oats"].waitForExistence(timeout: 300), "not saved")
         shot(app, "13-foods")
     }
 

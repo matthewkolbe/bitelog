@@ -1,43 +1,51 @@
 import SwiftUI
 
 /// What an entry shows when opened in the day's list, as rows under its
-/// summary: actions, the photo, what was said, the items, and the model's notes.
-/// Tapping an item opens it; the pencil changes the entry; ⋯ has the rest.
+/// summary: which model logged it, actions, the photo, what was said, the
+/// items, and the model's notes. Tapping an item opens it.
 struct EntryDetail: View {
     let entry: LogDB.Entry
     let model: AppModel
     let change: () -> Void
-    let add: () -> Void
+    let saveRecipe: () -> Void
     let edit: (LogDB.Item) -> Void
     @State private var confirmDelete = false
     @State private var actionError: String?
 
     private var e: LogDB.Entry { entry }
+    /// Logged and not mid-change: it can be changed or saved as a recipe.
+    static func settled(_ e: LogDB.Entry) -> Bool { e.status == .done && e.pendingEdit == nil }
 
     var body: some View {
-        HStack(spacing: 18) {
-            Text([e.createdAt.formatted(date: .omitted, time: .shortened), e.meal, e.model].compactMap { $0 }
-                .joined(separator: " · "))
-                .font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            Spacer()
-            if e.status == .done && e.pendingEdit == nil {
-                Button(action: change) { Image(systemName: "pencil") }
-                    .accessibilityLabel("Change this entry")
+        // the row above already shows the time and meal
+        if let m = e.model { Text("Logged by \(m)").font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+        // equal columns, icon over word: they fit side by side on any phone
+        HStack(spacing: 0) {
+            if Self.settled(e) {
+                Button(action: change) { Self.tile("Change", "pencil") }
             }
-            Menu {
-                if e.status == .done && e.pendingEdit == nil {
-                    Button(action: add) { Label("Add a food", systemImage: "plus") }
-                }
-                if ![.thinking, .transcribing, .waiting].contains(e.status) {
-                    Button { act { try model.log.redo(e.id); model.logger.kick() } } label: {
-                        Label(e.status == .done ? "Redo with the model" : "Try again", systemImage: "arrow.clockwise")
+            if ![.thinking, .transcribing, .waiting].contains(e.status) {
+                Menu {
+                    Button { redo(nil) } label: { Label("First model that answers", systemImage: "arrow.clockwise") }
+                    Section("With") {
+                        ForEach(model.profiles.profiles.filter(\.enabled)) { p in
+                            Button { redo(p.id) } label: {
+                                Text(p.name)
+                                Text(e.photo != nil && !p.vision ? "Can't read photos" : p.model)
+                            }
+                            .disabled(e.photo != nil && !p.vision)
+                        }
                     }
+                } label: {
+                    Self.tile(e.status == .done ? "Redo" : "Try again", "arrow.clockwise")
                 }
-                Button(role: .destructive) { confirmDelete = true } label: { Label("Delete entry", systemImage: "trash") }
-            } label: {
-                Image(systemName: "ellipsis").frame(width: 28, height: 28).contentShape(.rect)
             }
-            .accessibilityLabel("Entry options")
+            if Self.settled(e) && !e.items.isEmpty {
+                Button(action: saveRecipe) { Self.tile("Save", "square.and.arrow.down") }
+                    .accessibilityLabel("Save as a recipe")
+            }
+            Button(role: .destructive) { confirmDelete = true } label: { Self.tile("Delete", "trash") }
+                .foregroundStyle(.red)
         }
         .buttonStyle(.borderless)
         .confirmationDialog("Delete this entry?", isPresented: $confirmDelete, titleVisibility: .visible) {
@@ -75,6 +83,19 @@ struct EntryDetail: View {
         if let r = e.reply, e.status == .done || e.status == .nothing {
             Text(r).font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    private static func tile(_ title: String, _ icon: String) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: icon).font(.body.weight(.medium)).frame(height: 22)
+            Text(title).font(.caption).lineLimit(1)
+        }
+        .frame(maxWidth: .infinity)
+        .contentShape(.rect)
+    }
+
+    private func redo(_ profile: UUID?) {
+        act { try model.log.redo(e.id, profile: profile); model.logger.kick() }
     }
 
     private func act(_ f: () throws -> Void) {
@@ -125,12 +146,15 @@ struct ChangeSheet: View {
                 TextField("my recipe used 30% less oil · it was 90% dark chocolate · only half the rice",
                           text: $text, axis: .vertical)
                     .lineLimit(3...8)
-                HStack(spacing: 12) {
+                VStack(spacing: 6) {
                     HoldToTalk(recorder: recorder, size: 34) { url in spoken(url) }
                         .disabled(transcribing)
-                    if recorder.isRecording { RecordingBanner(recorder: recorder, hint: "release to change it") }
-                    else if transcribing { ProgressView(); Text("Transcribing…").foregroundStyle(.secondary) }
-                    else { Text("or hold to say it").font(.callout).foregroundStyle(.secondary) }
+                        .frame(maxWidth: .infinity)
+                    HStack {
+                        if recorder.isRecording { RecordingBanner(recorder: recorder, hint: "release to change it") }
+                        else if transcribing { ProgressView(); Text("Transcribing…").foregroundStyle(.secondary) }
+                        else { Text("or hold to say it").font(.callout).foregroundStyle(.secondary) }
+                    }
                 }
             }
             if let error { Text(error).foregroundStyle(.red) }
@@ -211,34 +235,54 @@ struct ItemSheet: View {
     }
 }
 
-/// Add a food to an entry by hand: grams, then search.
-struct AddFoodSheet: View {
-    let entryID: Int64
+/// An entry's foods and amounts as one of your recipes: say its name next time
+/// and it logs as one item. Versions ("90% cacao") come along.
+struct SaveRecipeSheet: View {
+    let entry: LogDB.Entry
     let model: AppModel
     @Environment(\.dismiss) private var dismiss
-    @State private var grams: Double?
+    @State private var name = ""
+    @State private var aliases = ""
     @State private var error: String?
 
     var body: some View {
         Form {
             Section {
-                LabeledContent("Grams") {
-                    TextField("100", value: $grams, format: .number).keyboardType(.decimalPad)
-                        .multilineTextAlignment(.trailing)
-                }
+                TextField("Name, e.g. My usual breakfast", text: $name)
+                TextField("Other names you call it", text: $aliases)
             } footer: {
-                Text("Enter the grams, then pick the food.")
+                Text("Say the name when logging and it logs as one item, these foods in these amounts. "
+                     + "Edit it later in My foods and recipes.")
+            }
+            Section("What's in it") {
+                ForEach(entry.items) { ItemRow(item: $0) }
             }
             if let error { Text(error).foregroundStyle(.red) }
-            FoodPicker(foods: model.foods) { hit in
-                do {
-                    try model.logger.addItem(to: entryID, fdcID: hit.fdcID, grams: grams ?? 0)
-                    dismiss()
-                } catch { self.error = String(describing: error) }
-            }
         }
-        .navigationTitle("Add a food")
+        .navigationTitle("Save as a recipe")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+            ToolbarItem(placement: .confirmationAction) { Button("Save", action: save) }
+        }
+    }
+
+    private func save() {
+        do {
+            _ = try model.foods.addRecipe(name: name, aliases: aliases, text: Self.text(entry.items),
+                                          ingredients: entry.items.map {
+                                              .init(fdcID: $0.fdcID, grams: $0.grams, said: $0.said, adjust: $0.adjust)
+                                          })
+            dismiss()
+        } catch {
+            self.error = String(describing: error)
+        }
+    }
+
+    /// The recipe's ingredient list, one per line, as editing it shows them.
+    static func text(_ items: [LogDB.Item]) -> String {
+        items.map { i in
+            "\(fmt(i.grams)) g \(i.said ?? i.description)" + (i.adjust.map { " (\($0.why))" } ?? "")
+        }.joined(separator: "\n")
     }
 }

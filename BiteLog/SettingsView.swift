@@ -10,6 +10,7 @@ struct SettingsView: View {
     @State private var checking = false
     @AppStorage(Goals.kcalKey) private var kcalGoal = 0.0
     @AppStorage(Goals.proteinKey) private var proteinGoal = 0.0
+    @AppStorage(Logger.recentFoodsKey) private var recentFoods = false
 
     var body: some View {
         List {
@@ -68,6 +69,13 @@ struct SettingsView: View {
             } footer: {
                 Text("Each entry uses the first model here that's switched on and answers, top to bottom. "
                      + "Drag to reorder. Keys stay on this phone. Removing the last one returns to setup.")
+            }
+
+            Section {
+                Toggle("Show the model my recent foods", isOn: $recentFoods)
+            } footer: {
+                Text("The last two weeks of what you logged go with each entry, so the same food gets the same "
+                     + "entry and misheard names are easier to place. With a cloud model, those foods are sent too.")
             }
 
             Section {

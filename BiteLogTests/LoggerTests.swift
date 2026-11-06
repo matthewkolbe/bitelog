@@ -75,14 +75,50 @@ struct LoggerTests {
         #expect(hits.contains { $0["fdc_id"] == 2263890 })
     }
 
+    @Test func settledWaitsForTheQueue() async throws {
+        let id = try log.addEntry(text: "an apple")
+        logger.kick()
+        await logger.settled()
+        #expect(!logger.running)
+        let e = try #require(try log.entry(id))
+        #expect(e.status == .queued)  // no model set up
+        #expect(e.error?.hasPrefix("Waiting for a model") == true)
+        #expect(BiteCapture.outcome(e) == (.done, "Saved. It logs when a model is reachable."))
+    }
+
+    @Test func logBiteOutcomeLine() async throws {
+        let s = Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 130, "basis": "weighed"}], "#
+                          + #""meal": "snack", "summary": "red seedless"}"#)]])
+        let e = try await run("130 g of red grapes", s)
+        #expect(BiteCapture.outcome(e) == (.done, "grapes · \(Int(e.kcal.rounded())) kcal"))
+        #expect(BiteCapture.outcome(nil).0 == .failed)
+        var nothing = e
+        nothing.status = .nothing
+        #expect(BiteCapture.outcome(nothing) == (.failed, "Heard nothing."))
+    }
+
+    @Test func amountsInTheUnitSaid() async throws {
+        let s = Script([
+            [("log_food", #"{"items": [{"fdc_id": 171265, "said": "milk", "amount": 250, "basis": "portion"}], "summary": ""}"#)],
+            [("log_food", #"{"items": [{"fdc_id": 171265, "said": "milk", "amount": 250, "unit": "ml", "basis": "portion"}, "#
+              + #"{"fdc_id": 2263890, "said": "grapes", "amount": 6, "unit": "oz", "basis": "weighed"}, "#
+              + #"{"fdc_id": 170273, "said": "chocolate", "amount": 50, "unit": "kcal", "basis": "estimated"}], "summary": ""}"#)],
+        ])
+        let e = try await run("250 ml milk, 6 oz grapes and 50 calories of dark chocolate", s)
+        #expect(try s.results(2) == [["error": "item 0 (milk): amount 250 has no unit: add unit ('g' if it's grams)"]])
+        #expect(e.status == .done)
+        #expect(e.items.map(\.grams) == [257.8, 170.1, 8.4])
+        #expect(e.items[2].values["kcal"] == 50)
+    }
+
     @Test func logFoodErrorsGoBackToTheModel() async throws {
         let s = Script([
-            [("log_food", #"{"items": [{"fdc_id": 172187, "said": "eggs", "grams": 100, "portion": "1 large", "basis": "portion"}], "summary": ""}"#)],
+            [("log_food", #"{"items": [{"fdc_id": 172187, "said": "eggs", "basis": "portion"}], "summary": ""}"#)],
             [("log_food", #"{"items": [{"fdc_id": 172187, "said": "eggs", "portion": "1 slice", "basis": "portion"}], "summary": ""}"#)],
             [("log_food", #"{"items": [{"fdc_id": 172187, "said": "eggs", "portion": "1 large", "quantity": 2, "basis": "portion"}], "summary": "scrambled"}"#)],
         ])
         let e = try await run("two scrambled eggs", s)
-        #expect(try s.results(2) == [["error": "item 0 (eggs): give exactly one of grams or portion"]])
+        #expect(try s.results(2) == [["error": "item 0 (eggs): give grams, a portion, or amount with unit"]])
         let portionError = try #require(try s.results(3).last?["error"]?.string)
         #expect(portionError.hasPrefix("Error executing tool nutrition: fdc_id 172187 (Egg, whole, cooked, scrambled) has no portion '1 slice'"))
         #expect(e.status == .done)
@@ -262,6 +298,35 @@ struct LoggerTests {
         try log.deleteEntry(id)
     }
 
+    @Test func recentFoodsGoToTheModelWhenOn() async throws {
+        let now = Date()
+        func logged(_ said: String, _ fdcID: Int, daysAgo: Double, version: String = "") async throws {
+            _ = try await run(said, Script([[("log_food", #"{"items": [{"fdc_id": \#(fdcID), "said": "\#(said)", "grams": 100, "#
+                                                + #""basis": "weighed"\#(version)}], "summary": ""}"#)]]),
+                              at: now.addingTimeInterval(-daysAgo * 86_400))
+        }
+        try await logged("grapes", 2263890, daysAgo: 20)    // too long ago
+        try await logged("grapes", 2263890, daysAgo: 3)
+        try await logged("Grapes", 2263890, daysAgo: 2)     // the same food again: listed once
+        try await logged("milk", 171304, daysAgo: 1,
+                         version: #", "version": {"why": "2%", "per_100g": {"fat_g": 2.0}}"#)
+        func prompt(on: Bool) async throws -> String {
+            logger.recentFoodsOn = { on }
+            let s = Script([[("nothing_to_log", #"{"reason": "x"}"#)]])
+            _ = try await run("an apple", s, at: now)
+            guard case .user(let parts) = s.requests[0].messages[1], case .text(let t) = parts[0] else { return "" }
+            return t
+        }
+        #expect(!(try await prompt(on: false)).contains("Foods this user logged"))
+        let on = try await prompt(on: true)
+        #expect(on.hasSuffix("""
+
+            \(try Brain.bundled().recentFoods)
+            - milk = Yogurt, Greek, plain, whole milk (fdc_id 171304); their version per 100 g: {"fat_g": 2}
+            - Grapes = Grapes, red, seedless, raw (fdc_id 2263890)
+            """), "\(on)")
+    }
+
     @Test func photoGoesToTheModel() async throws {
         let jpeg = Data([0xFF, 0xD8, 0xFF, 0xE0])
         let id = try log.addEntry(photo: try Media.save(jpeg, ext: "jpg"))
@@ -318,18 +383,54 @@ struct LoggerTests {
 
     @Test func recipePhotoReading() async throws {
         var sent: LLM.Request?
-        var text = #"{"readable": true, "name": "Chili", "servings": 4, "ingredients": ["2 tbsp olive oil", "  ", " 1 lb ground chicken "]}"#
+        var text = #"{"readable": true, "name": "Chili", "ingredients": ["2 tbsp olive oil", "  ", " 1 lb ground chicken "]}"#
         let r = try await logger.readRecipePhoto(Data([0xFF])) { req, _ in
             sent = req
             return LLM.Reply(text: text, calls: [], native: nil, usage: nil)
         }
-        #expect(r == .init(name: "Chili", servings: 4, text: "2 tbsp olive oil\n1 lb ground chicken"))
+        #expect(r == .init(name: "Chili", text: "2 tbsp olive oil\n1 lb ground chicken"))
         #expect(sent?.jsonSchema?.name == "recipe")
-        for bad in [#"{"readable": false, "name": null, "servings": null, "ingredients": []}"#,
-                    #"{"readable": true, "name": "x", "servings": null, "ingredients": []}"#, "not json"] {
+        for bad in [#"{"readable": false, "name": null, "ingredients": []}"#,
+                    #"{"readable": true, "name": "x", "ingredients": []}"#, "not json"] {
             text = bad
             await #expect(throws: Logger.Failure.self) {
                 try await logger.readRecipePhoto(Data([0xFF])) { _, _ in LLM.Reply(text: text, calls: [], native: nil, usage: nil) }
+            }
+        }
+    }
+
+    static func item(_ said: String?, _ grams: Double, _ description: String = "USDA name") -> LogDB.Item {
+        .init(id: 0, fdcID: 1, description: description, said: said, grams: grams, basis: "weighed",
+              note: nil, adjust: nil, values: [:])
+    }
+
+    /// The namer gets the foods with their amounts and anything the user said;
+    /// no name, or not JSON, is an error, never a blank title.
+    @Test func combinedEntriesAreNamed() async throws {
+        var sent: LLM.Request?
+        var text = #"{"name": " Guacamole "}"#
+        let items = [Self.item("tomato", 30), Self.item(nil, 100, "Avocados, raw")]
+        let n = try await logger.nameCombined(items, said: " for the tacos ") { req, _ in
+            sent = req
+            return LLM.Reply(text: text, calls: [], native: nil, usage: nil)
+        }
+        #expect(n == "Guacamole")
+        #expect(sent?.jsonSchema?.name == "combine")
+        guard case .user(let parts)? = sent?.messages.first, case .text(let prompt) = parts[0] else {
+            Issue.record("no prompt"); return
+        }
+        #expect(prompt.hasPrefix(logger.brain.combinePrompt))
+        #expect(prompt.hasSuffix("Foods:\n30 g tomato\n100 g Avocados, raw\n\nThe user says: for the tacos"))
+        _ = try await logger.nameCombined(items, said: "  ") { req, _ in
+            sent = req
+            return LLM.Reply(text: text, calls: [], native: nil, usage: nil)
+        }
+        guard case .user(let p2)? = sent?.messages.first, case .text(let quiet) = p2[0] else { return }
+        #expect(!quiet.contains("The user says"))
+        for bad in [#"{"name": "  "}"#, "not json"] {
+            text = bad
+            await #expect(throws: Logger.Failure.self) {
+                try await logger.nameCombined(items, said: nil) { _, _ in LLM.Reply(text: text, calls: [], native: nil, usage: nil) }
             }
         }
     }
@@ -352,11 +453,100 @@ struct LoggerTests {
         now = try #require(try log.entry(e.id)).items[0]
         #expect(now.fdcID == 170272)
         #expect(now.adjust == nil && now.note == nil)  // another food starts from its own numbers
-        try logger.addItem(to: e.id, fdcID: 2263890, grams: 100)
-        #expect(try #require(try log.entry(e.id)).items.map(\.fdcID) == [170272, 2263890])
         try log.redo(e.id)
         let redone = try #require(try log.entry(e.id))
         #expect(redone.items.isEmpty && redone.status == .queued && redone.reply == nil)
+    }
+
+    /// Redo with a chosen model: that model or none. Gone or switched off is an
+    /// error on the entry; not answering keeps it queued for that model without
+    /// holding up the other entries. An export never carries the choice.
+    @Test func redoWithAChosenModel() async throws {
+        let s = Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "grapes", "grams": 130, "basis": "weighed"}], "summary": ""}"#)]])
+        let e = try await run("130 g of grapes", s)
+        var down = Profile(name: "Down", kind: .openAI, baseURL: "http://127.0.0.1:9/v1", model: "m", vision: false)
+
+        try log.redo(e.id, profile: UUID())
+        #expect(try await logger.process(e.id))
+        var now = try #require(try log.entry(e.id))
+        #expect(now.status == .error && now.error == "The model chosen for this redo was removed." && now.useProfile == nil)
+
+        down.enabled = false
+        logger.profiles.profiles = [down]
+        try log.redo(e.id, profile: down.id)
+        #expect(try await logger.process(e.id))
+        now = try #require(try log.entry(e.id))
+        #expect(now.status == .error && now.error == "Down is switched off in Settings.")
+
+        logger.profiles.profiles[0].enabled = true
+        try log.redo(e.id, profile: down.id)
+        #expect(try #require(try log.entry(e.id)).useProfile == down.id)
+        let out = FileManager.default.temporaryDirectory.appendingPathComponent("export-\(UUID()).db")
+        try log.copy(to: out)
+        #expect(try LogDB(path: out.path).entry(e.id)?.useProfile == nil)
+        #expect(try await logger.process(e.id))  // true: the rest of the queue goes on
+        now = try #require(try log.entry(e.id))
+        #expect(now.status == .queued && now.useProfile == down.id && now.error?.hasPrefix("Waiting for Down:") == true)
+    }
+
+    /// Saving an entry as a recipe keeps each item's version: the recipe's
+    /// numbers are the entry's.
+    @Test func entrySavedAsRecipeKeepsVersions() async throws {
+        let s = Script([[("log_food", #"""
+            {"items": [{"fdc_id": 170273, "said": "chocolate", "grams": 30, "basis": "estimated",
+              "version": {"why": "90% cacao", "per_100g": {"fat_g": 50, "carb_g": 32.1}}},
+             {"fdc_id": 2263890, "said": "grapes", "grams": 130, "basis": "weighed"}], "summary": ""}
+            """#)]])
+        let e = try await run("30 g of 90% chocolate and 130 g of grapes", s)
+        let saved = try foods.addRecipe(name: "Snack plate", text: SaveRecipeSheet.text(e.items),
+                                        ingredients: e.items.map { .init(fdcID: $0.fdcID, grams: $0.grams, said: $0.said, adjust: $0.adjust) })
+        for k in ["kcal", "fat_g", "carb_g", "protein_g"] {
+            let want = e.total(k) * 100 / 160
+            #expect(abs(((saved.food.per100g[k] ?? nil) ?? 0) - want) < 0.01, "\(k)")
+        }
+        #expect(SaveRecipeSheet.text(e.items) == "30 g chocolate (90% cacao)\n130 g grapes")
+        #expect(saved.ingredients[0]["version"] == .string("90% cacao"))
+    }
+
+    @Test func combinedEntriesBecomeOne() async throws {
+        let t0 = Date()
+        let banana = try await run("120 g banana", Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "banana", "grams": 120, "basis": "weighed"}], "summary": ""}"#)]]), at: t0)
+        let milk = try await run("200 g whole milk", Script([[("log_food", #"{"items": [{"fdc_id": 171265, "said": "whole milk", "grams": 200, "basis": "weighed"}, {"fdc_id": 172187, "said": "egg", "grams": 50, "basis": "portion"}], "summary": ""}"#)]]), at: t0 + 60)
+        try log.update(milk.id, ["edits": #"["it was 50 g egg"]"#])
+        let kcal = banana.kcal + milk.kcal
+        let pending = try log.addEntry(text: "an apple", at: t0 + 120)
+
+        // only logged entries, two or more
+        #expect(throws: SQLite.Failure.self) { try log.combine([banana.id, pending], title: nil) }
+        #expect(throws: SQLite.Failure.self) { try log.combine([banana.id, banana.id], title: nil) }
+
+        // newest first, as the list shows them: the earliest still keeps its place
+        let id = try log.combine([milk.id, banana.id], title: " Smoothie ")
+        #expect(id == banana.id)
+        #expect(try log.entry(milk.id) == nil)
+        let e = try #require(try log.entry(id))
+        #expect(e.title == "Smoothie" && e.what == "Smoothie")
+        #expect(e.items.map(\.said) == ["banana", "whole milk", "egg"])
+        #expect(abs(e.kcal - kcal) < 0.001)
+        #expect(e.text == "120 g banana\n200 g whole milk")
+        #expect(e.edits == ["it was 50 g egg"])
+        #expect(e.createdAt == banana.createdAt && e.status == .done)
+
+        // a redo logs the whole thing again from the joined words, and the name stays
+        try log.redo(id)
+        let s = Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "banana", "grams": 120, "basis": "weighed"}], "summary": ""}"#)]])
+        try await logger.run(id) { try s.send($0, $1) }
+        guard case .user(let parts) = s.requests[0].messages[1], case .text(let said) = parts[0] else {
+            Issue.record("no prompt"); return
+        }
+        #expect(said.contains("Typed: 120 g banana\n200 g whole milk"))
+        #expect(try log.entry(id)?.title == "Smoothie")
+
+        // no name: the foods, as before
+        let a = try await run("an apple", Script([[("log_food", #"{"items": [{"fdc_id": 2263890, "said": "apple", "grams": 100, "basis": "estimated"}], "summary": ""}"#)]]), at: t0 + 300)
+        try log.update(pending, status: .done)
+        let b = try log.combine([a.id, pending], title: "  ")
+        #expect(try log.entry(b)?.title == nil)
     }
 
     /// A real recording through on-device speech to text and the real model.
@@ -386,6 +576,22 @@ struct LoggerTests {
         #expect(names.contains { $0.contains("lox") }, "\(names)")
         #expect(names.contains { $0.contains("greek") }, "\(names)")
         #expect(!names.contains { $0.contains("locks") || $0.contains("great") }, "\(names)")
+    }
+
+    /// Named from the foods alone, and steered by what the user said. Neither
+    /// dish is the prompt's example.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
+    func liveCombinedNames() async throws {
+        let p = Self.liveProfile()
+        let send: Logger.Send = { req, w in try await logger.client.send(req, via: p, onWait: w) }
+        let hummus = try await logger.nameCombined(
+            [Self.item("chickpeas", 240), Self.item("tahini", 30), Self.item("lemon juice", 30),
+             Self.item("garlic", 5), Self.item("olive oil", 15)], said: nil, send: send)
+        #expect(hummus.lowercased().contains("hummus"), "\(hummus)")
+        let shake = try await logger.nameCombined(
+            [Self.item("banana", 120), Self.item("whole milk", 250), Self.item("whey protein", 30)],
+            said: "my after the gym shake", send: send)
+        #expect(shake.lowercased().contains("shake"), "\(shake)")
     }
 
     /// Transcripts spelled by sound: a homophone of a food stands for that food.
@@ -433,6 +639,47 @@ struct LoggerTests {
         let names = e.items.compactMap { $0.said?.lowercased() }
         #expect(names.contains { $0.contains(c.food) }, "\(c.heard) -> \(names) \(e.reply ?? e.error ?? "")")
         #expect(!names.contains { $0.contains(c.wrong) }, "\(c.heard) -> \(names)")
+    }
+
+    /// Amounts in the units people say, and one with no unit of measure at all.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)),
+          arguments: [
+              ("250 ml of whole milk", "grams", 245.0...265.0),
+              ("6 ounces of red grapes", "grams", 170.0...170.2),
+              ("3 tablespoons of olive oil", "grams", 38.0...45.0),
+              ("half a pound of raw chicken breast", "grams", 226.0...227.5),
+              ("two cups of cooked white rice", "grams", 300.0...380.0),
+              ("50 calories of dark chocolate", "kcal", 48.0...52.0),
+              ("a fist of boiled potatoes", "grams", 80.0...250.0),
+          ])
+    func liveUnits(_ c: (said: String, what: String, range: ClosedRange<Double>)) async throws {
+        let id = try log.addEntry(text: c.said)
+        let p = Self.liveProfile()
+        try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
+        let e = try #require(try log.entry(id))
+        let got = c.what == "kcal" ? e.kcal : e.items.reduce(0) { $0 + $1.grams }
+        #expect(e.items.count == 1 && c.range.contains(got),
+                "\(c.said) -> \(e.items.map { "\($0.description) \($0.grams) g \(($0.values["kcal"] ?? nil) ?? 0) kcal" }) \(e.error ?? "")")
+    }
+
+    /// A custom food that shares the words of a plain food isn't that food: "whole
+    /// milk" is milk, not the household's whole milk yogurt; naming the brand is.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)),
+          arguments: [("a cup of whole milk", false), ("a cup of Acme yogurt", true)])
+    func liveCustomFoodOnlyWhenNamed(_ c: (said: String, custom: Bool)) async throws {
+        let acme = try foods.addCustomFood(name: "Acme whole milk yogurt", servingLabel: "1 cup (170g)", servingG: 170,
+                                           perServing: ["kcal": 150, "protein_g": 15, "fat_g": 7, "carb_g": 7])
+        let id = try log.addEntry(text: c.said)
+        let p = Self.liveProfile()
+        try await logger.run(id) { req, onWait in try await logger.client.send(req, via: p, onWait: onWait) }
+        let e = try #require(try log.entry(id))
+        let got = e.items.map { "\($0.fdcID) \($0.description)" }
+        #expect(e.items.count == 1, "\(got) \(e.error ?? "")")
+        if c.custom {
+            #expect(e.items.first?.fdcID == acme.fdcID, "\(got)")
+        } else {
+            #expect(e.items.first.map { $0.fdcID > 0 && $0.description.hasPrefix("Milk") } == true, "\(got)")
+        }
     }
 
     /// On a phone with the recordings in the test bundle (see VoiceTests):
@@ -499,7 +746,6 @@ struct LoggerTests {
         }.jpegData(compressionQuality: 0.85)!
         let r = try await logger.readRecipePhoto(jpeg) { req, w in try await logger.client.send(req, via: p, onWait: w) }
         #expect(r.name == "Weeknight Chicken Chili")
-        #expect(r.servings == 4)
         let lines = r.text.split(separator: "\n").map { $0.lowercased() }
         #expect(lines.count == 5, "\(lines)")
         #expect(lines.contains { $0.contains("water") }, "the water from the method: \(lines)")

@@ -103,8 +103,23 @@ extension FoodDB {
         try zip(nutrition(items.map(\.amount)).items, items).map { scaled, it in
             var s = scaled
             s.values = Nutrition.apply(it.adjust, to: s.values)
+            if it.adjust != nil, let kcal = it.amount.amount, Self.isKcal(it.amount.unit) {
+                s = try Self.toKcal(s, kcal)
+            }
             return s
         }
+    }
+
+    /// An amount said in calories, of a version whose calories per gram differ
+    /// from the entry's: it was measured by the entry's, so scale it to the version's.
+    static func toKcal(_ s: Scaled, _ kcal: Double) throws -> Scaled {
+        guard let have = s.values["kcal"] ?? nil, have != 0 else {
+            throw Failure.invalid("fdc_id \(s.fdcID) (\(s.description)): this version has no calories to measure by; "
+                                  + "give grams")
+        }
+        let f = kcal / have
+        return Scaled(fdcID: s.fdcID, description: s.description, grams: pyRound(s.grams * f, 1),
+                      values: s.values.mapValues { $0.map { $0 * f } })
     }
 }
 

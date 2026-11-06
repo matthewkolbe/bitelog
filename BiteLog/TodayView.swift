@@ -14,8 +14,16 @@ struct TodayView: View {
     /// Entries opened in place, and the sheets opened from them.
     @State private var open: Set<Int64> = []
     @State private var changing: Int64?
-    @State private var adding: Int64?
+    @State private var saving: LogDB.Entry?
     @State private var editing: LogDB.Item?
+    /// Combining: picking entries with checkmarks, or pinching two together
+    /// (they and every entry between them).
+    @State private var selecting = false
+    @State private var picked: Set<Int64> = []
+    @State private var combining: Combining?
+    @State private var pinched: [Int64] = []
+    @State private var pinchReady = false
+    @State private var frames = RowFrames()
     @State private var recorder = Recorder()
     @State private var keyboard = false
     @FocusState private var typing: Bool
@@ -26,6 +34,8 @@ struct TodayView: View {
     var body: some View {
         let _ = log.revision  // redraw on every write
         let loaded = Result { (try log.entries(day: day), try log.totals(day: day)) }
+        let shown = ((try? loaded.get().0) ?? []).reversed() as [LogDB.Entry]
+        let settled = shown.filter(EntryDetail.settled).count
         List {
             switch loaded {
             case .failure(let e):
@@ -40,21 +50,33 @@ struct TodayView: View {
                     }
                 }
                 // one card per entry: tap to open it in place
-                ForEach(entries.reversed()) { e in
-                    let isOpen = open.contains(e.id) || e.status == .error || e.pendingEdit != nil
+                ForEach(shown) { e in
+                    let isOpen = !selecting && (open.contains(e.id) || e.status == .error || e.pendingEdit != nil)
                     Section {
-                        Button { toggle(e.id) } label: { EntryRow(entry: e, open: isOpen) }
-                            .foregroundStyle(.primary)
-                            .swipeActions { Button("Delete", role: .destructive) { delete(e.id) } }
+                        row(e, open: isOpen, combinable: settled >= 2)
                         if isOpen {
-                            EntryDetail(entry: e, model: model, change: { changing = e.id }, add: { adding = e.id },
+                            EntryDetail(entry: e, model: model, change: { changing = e.id }, saveRecipe: { saving = e },
                                         edit: { editing = $0 })
                         }
+                    } header: {
+                        if e.id == shown.first?.id { combineBar(shown) }
                     }
                 }
             }
             if let writeError { Text(writeError).foregroundStyle(.red) }
         }
+        .gesture(EntryPinch(qualify: { a, b in startPinch(a, b, shown) }, frames: frames,
+                            changed: { scale in
+                                let ready = scale < EntryPinch.threshold
+                                if ready != pinchReady { pinchReady = ready }
+                            },
+                            ended: { combine in
+                                // the pinched stay picked: swipe one right to combine them
+                                if combine { selecting = true; picked.formUnion(pinched) }
+                                pinched = []
+                                pinchReady = false
+                            }))
+        .onChange(of: day) { selecting = false; picked = []; frames.frames = [:] }
         .navigationTitle(title)
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
@@ -80,8 +102,11 @@ struct TodayView: View {
         .sheet(item: Binding(get: { changing.map(Opened.init) }, set: { changing = $0?.id })) { o in
             NavigationStack { ChangeSheet(id: o.id, model: model) }
         }
-        .sheet(item: Binding(get: { adding.map(Opened.init) }, set: { adding = $0?.id })) { o in
-            NavigationStack { AddFoodSheet(entryID: o.id, model: model) }
+        .sheet(item: $combining) { c in
+            NavigationStack { CombineSheet(ids: c.ids, model: model) { selecting = false; picked = [] } }
+        }
+        .sheet(item: $saving) { e in
+            NavigationStack { SaveRecipeSheet(entry: e, model: model) }
         }
         .sheet(item: $editing) { item in
             NavigationStack { ItemSheet(item: item, model: model) }
@@ -107,18 +132,16 @@ struct TodayView: View {
         }
     }
 
-    /// Hold to talk is the main way in; the camera adds a photo; the keyboard
+    /// Hold to talk is the main way in, in the middle, where a thumb reaches
+    /// holding the phone in either hand; the camera adds a photo; the keyboard
     /// button types instead (quiet places, and the Simulator, which has no
     /// speech model).
     private var composer: some View {
         VStack(spacing: 6) {
             RecordingBanner(recorder: recorder)
-            HStack(alignment: .bottom, spacing: 10) {
-                PhotoButton(maxSide: 1280, onPhoto: { photo = $0 }) {
-                    Image(systemName: "camera.circle.fill").font(.system(size: 44))
-                }
-                .accessibilityLabel("Photo")
-                if keyboard {
+            if keyboard {
+                HStack(alignment: .bottom, spacing: 10) {
+                    photoButton
                     TextField("What did you eat?", text: $text, axis: .vertical)
                         .lineLimit(1...5)
                         .focused($typing)
@@ -131,21 +154,34 @@ struct TodayView: View {
                               ? "mic.circle.fill" : "arrow.up.circle.fill").font(.system(size: 44))
                     }
                     .accessibilityLabel(text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Talk instead" : "Log it")
-                } else {
-                    HoldToTalk(recorder: recorder, size: 44, pill: true) { url in add(audioFile: url) }
-                    Button {
-                        keyboard = true
-                        typing = true
-                    } label: {
-                        Image(systemName: "keyboard").font(.system(size: 20, weight: .medium))
-                            .frame(width: 44, height: 44).background(.background, in: .circle)
+                }
+            } else {
+                ZStack {
+                    HoldToTalk(recorder: recorder, size: 64, labeled: true) { url in add(audioFile: url) }
+                    HStack {
+                        photoButton
+                        Spacer()
+                        Button {
+                            keyboard = true
+                            typing = true
+                        } label: {
+                            Image(systemName: "keyboard").font(.system(size: 20, weight: .medium))
+                                .frame(width: 44, height: 44).background(.background, in: .circle)
+                        }
+                        .accessibilityLabel("Type instead")
                     }
-                    .accessibilityLabel("Type instead")
                 }
             }
         }
         .padding(.horizontal, 16).padding(.vertical, 8)
         .background(.bar)
+    }
+
+    private var photoButton: some View {
+        PhotoButton(maxSide: 1280, onPhoto: { photo = $0 }) {
+            Image(systemName: "camera.circle.fill").font(.system(size: 44))
+        }
+        .accessibilityLabel("Photo")
     }
 
     private var today: String { LogDB.day(Date(), .current) }
@@ -191,6 +227,80 @@ struct TodayView: View {
         } catch {
             writeError = "Couldn't save the entry: \(error)"
         }
+    }
+
+    /// One entry's row: tap opens it, or picks it while combining; swipe to
+    /// delete or change, or right to combine the picked; long-press for those
+    /// and Combine. Highlighted while pinched and while picked.
+    @ViewBuilder private func row(_ e: LogDB.Entry, open isOpen: Bool, combinable: Bool) -> some View {
+        let canPick = EntryDetail.settled(e)
+        Button {
+            if !selecting { toggle(e.id) } else if canPick { picked.formSymmetricDifference([e.id]) }
+        } label: {
+            HStack(spacing: 10) {
+                if selecting {
+                    Image(systemName: picked.contains(e.id) ? "checkmark.circle.fill" : "circle")
+                        .font(.title3).foregroundStyle(canPick ? Color.accentColor : Color.secondary.opacity(0.4))
+                }
+                EntryRow(entry: e, open: isOpen)
+            }
+        }
+        .foregroundStyle(.primary)
+        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { frames.frames[e.id] = $0 }
+        .listRowBackground(pinched.contains(e.id) ? Color.accentColor.opacity(pinchReady ? 0.35 : 0.15)
+                           : selecting && picked.contains(e.id) ? Color.accentColor.opacity(0.15)
+                           : Color(.secondarySystemGroupedBackground))
+        .swipeActions { if !selecting { Button("Delete", role: .destructive) { delete(e.id) } } }
+        .swipeActions(edge: .leading) {
+            if !selecting && canPick {
+                Button { changing = e.id } label: { Label("Change", systemImage: "pencil") }.tint(.blue)
+            } else if selecting && picked.contains(e.id) && picked.count >= 2 {
+                Button { combining = Combining(ids: picked.sorted()) } label: {
+                    Label("Combine", systemImage: "arrow.down.right.and.arrow.up.left")
+                }.tint(.blue)
+            }
+        }
+        .accessibilityAddTraits(selecting && picked.contains(e.id) ? .isSelected : [])
+        .contextMenu {
+            if !selecting && canPick {
+                Button { changing = e.id } label: { Label("Change", systemImage: "pencil") }
+                if combinable {
+                    Button { selecting = true; picked = [e.id] } label: {
+                        Label("Combine with others…", systemImage: "arrow.down.right.and.arrow.up.left")
+                    }
+                }
+            }
+            if !selecting { Button(role: .destructive) { delete(e.id) } label: { Label("Delete", systemImage: "trash") } }
+        }
+    }
+
+    /// Above the entries while picking: Cancel, and Combine the picked. Picking
+    /// starts from an entry's long-press menu, so it takes no room otherwise.
+    @ViewBuilder private func combineBar(_ shown: [LogDB.Entry]) -> some View {
+        if selecting {
+            HStack {
+                Button("Cancel") { selecting = false; picked = [] }
+                Spacer()
+                Text(picked.count < 2 ? "Pick entries to combine" : "\(picked.count) picked").foregroundStyle(.secondary)
+                Spacer()
+                Button("Combine") { combining = Combining(ids: shown.map(\.id).filter(picked.contains)) }
+                    .fontWeight(.semibold).disabled(picked.count < 2)
+            }
+            .textCase(nil)
+        }
+    }
+
+    /// A pinch begins on two entries: it covers them and every entry between,
+    /// and only when all of those are done logging.
+    private func startPinch(_ a: Int64, _ b: Int64, _ shown: [LogDB.Entry]) -> Bool {
+        guard let i = shown.firstIndex(where: { $0.id == a }), let j = shown.firstIndex(where: { $0.id == b }) else {
+            return false
+        }
+        let range = shown[min(i, j)...max(i, j)]
+        guard range.allSatisfy(EntryDetail.settled) else { return false }
+        pinched = range.map(\.id)
+        pinchReady = false
+        return true
     }
 
     private func toggle(_ id: Int64) {
@@ -331,6 +441,12 @@ struct MacroRing: View {
 /// An entry id as a sheet's item.
 private struct Opened: Identifiable { let id: Int64 }
 
+/// The entries a Combine sheet is for.
+private struct Combining: Identifiable {
+    let ids: [Int64]
+    var id: [Int64] { ids }
+}
+
 struct EntryRow: View {
     let entry: LogDB.Entry
     var open = false
@@ -398,21 +514,40 @@ struct HistoryView: View {
                 Text(String(describing: e)).foregroundStyle(.red)
             case .success(let days):
                 ForEach(days) { d in
+                    // plain text colors: a button tints its whole label, which washed the macros out
                     Button { open(d.day) } label: {
                         HStack {
-                            VStack(alignment: .leading, spacing: 3) {
+                            VStack(alignment: .leading, spacing: 4) {
                                 Text(TodayView.date(d.day)?.formatted(.dateTime.weekday(.wide).month().day()) ?? d.day)
-                                    .foregroundStyle(.primary)
-                                Text("P \(fmt(d.proteinG)) F \(fmt(d.fatG)) C \(fmt(d.carbG))").font(.caption).foregroundStyle(.secondary)
+                                HStack(spacing: 12) {
+                                    macro("protein_g", d.proteinG)
+                                    macro("fat_g", d.fatG)
+                                    macro("carb_g", d.carbG)
+                                }
                             }
-                            Text("\(Int(d.kcal.rounded()))").font(.headline.monospacedDigit()).frame(minWidth: 56, alignment: .trailing)
+                            Spacer()
+                            Text("\(Int(d.kcal.rounded())) kcal").font(.headline.monospacedDigit())
                         }
+                        .contentShape(.rect)
                     }
+                    .foregroundStyle(.primary)
+                    .accessibilityLabel("\(TodayView.date(d.day)?.formatted(.dateTime.weekday(.wide).month().day()) ?? d.day), "
+                                        + "\(Int(d.kcal.rounded())) calories, protein \(fmt(d.proteinG)) grams, "
+                                        + "fat \(fmt(d.fatG)) grams, carbs \(fmt(d.carbG)) grams")
                 }
                 if days.isEmpty { Text("Nothing logged yet.").foregroundStyle(.secondary) }
             }
         }
         .navigationTitle("History")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    /// A macro's grams beside its color dot, as the day's totals show them.
+    private func macro(_ key: String, _ g: Double) -> some View {
+        HStack(spacing: 4) {
+            Circle().fill(Macro.color(key)).frame(width: 7, height: 7)
+            Text("\(fmt(g)) g").monospacedDigit()
+        }
+        .font(.subheadline).foregroundStyle(.secondary)
     }
 }

@@ -14,10 +14,15 @@ final class Logger {
     let brain: Brain
     let client: LLMClient
     let profiles: ProfileStore
+    /// The setting that sends the user's recent foods with each entry.
+    nonisolated static let recentFoodsKey = "recentFoods"
+    /// Whether it's on; tests swap it.
+    @ObservationIgnored var recentFoodsOn: () -> Bool = { UserDefaults.standard.bool(forKey: Logger.recentFoodsKey) }
     /// Speech to text; tests swap it.
     @ObservationIgnored var transcribe: (URL) async throws -> Transcriber.Transcript = Transcriber.transcribe
     private(set) var running = false
     @ObservationIgnored private var again = false
+    @ObservationIgnored private var worker: Task<Void, Never>?
 
     /// The entry was deleted while it was being processed.
     struct Gone: Error {}
@@ -48,7 +53,7 @@ final class Logger {
     func kick() {
         guard !running else { again = true; return }
         running = true
-        Task {
+        worker = Task {
             defer { running = false }
             repeat {
                 again = false
@@ -57,6 +62,11 @@ final class Logger {
                 }
             } while again
         }
+    }
+
+    /// Returns when the queue has nothing left it can process.
+    func settled() async {
+        while running, let w = worker { await w.value }
     }
 
     /// One entry. False when no model is available (the entry stays queued and
@@ -80,13 +90,33 @@ final class Logger {
                 return true
             }
             let profile: Profile
-            do {
-                profile = try await client.route(profiles.profiles, needsVision: e.photo != nil)
-            } catch {
-                try log.update(id, status: .queued, ["error": "Waiting for a model: \(error)"])
-                return false
+            if let want = e.useProfile {
+                // a redo with a chosen model: that one or none
+                guard let p = profiles.profiles.first(where: { $0.id == want }) else {
+                    try log.update(id, status: .error, ["error": "The model chosen for this redo was removed.", "use_profile": nil])
+                    return true
+                }
+                guard p.enabled else {
+                    try log.update(id, status: .error, ["error": "\(p.name) is switched off in Settings.", "use_profile": nil])
+                    return true
+                }
+                do {
+                    profile = try await client.route([p], needsVision: e.photo != nil)
+                } catch {
+                    // waits for that model; the other entries don't wait with it
+                    try log.update(id, status: .queued, ["error": "Waiting for \(p.name): \(error)"])
+                    return true
+                }
+            } else {
+                do {
+                    profile = try await client.route(profiles.profiles, needsVision: e.photo != nil)
+                } catch {
+                    try log.update(id, status: .queued, ["error": "Waiting for a model: \(error)"])
+                    return false
+                }
             }
-            try log.update(id, status: .thinking, ["model": "\(profile.name) (\(profile.model))", "error": nil])
+            try log.update(id, status: .thinking, ["model": "\(profile.name) (\(profile.model))", "error": nil,
+                                                   "use_profile": nil])
             try await run(id) { req, onWait in try await self.client.send(req, via: profile, onWait: onWait) }
         } catch is Gone {
         } catch {
@@ -135,6 +165,7 @@ final class Logger {
                           + e.edits.map { "\u{201C}\($0)\u{201D}" }.joined(separator: "; ")]
             }
             lines += try householdFoods()
+            if recentFoodsOn() { lines += try recentFoods(e) }
         }
         var content: [LLM.Part] = [.text(lines.joined(separator: "\n"))]
         if let p = e.photo { content.append(.jpeg(try Data(contentsOf: Media.url(p)))) }
@@ -167,6 +198,25 @@ final class Logger {
                          ? "Photo attached: the food about to be eaten." : "Photo attached.")
         }
         return lines
+    }
+
+    /// brain.py's recent_food_lines: the foods logged in the days before this
+    /// entry, latest first, one line per said name and entry.
+    func recentFoods(_ e: LogDB.Entry) throws -> [String] {
+        let since = e.createdAt.addingTimeInterval(-Double(brain.recentDays) * 86_400)
+        var seen = Set<String>(), out: [String] = []
+        for it in try log.recentItems(excluding: e.id, since: since, before: e.createdAt) {
+            let said = it.said.flatMap { $0.isEmpty ? nil : $0 } ?? it.description
+            guard seen.insert("\(said.lowercased())\u{0}\(it.fdcID)").inserted else { continue }
+            var line = "- \(said) = \(it.description) (fdc_id \(it.fdcID))"
+            if let a = it.adjust {
+                line += "; their version per 100 g: "
+                    + (try pyDumps(a.per100g.sorted { $0.key < $1.key }.map { ($0.key, JSON.number($0.value)) }))
+            }
+            out.append(line)
+            if out.count == brain.recentMax { break }
+        }
+        return out.isEmpty ? [] : ["", brain.recentFoods] + out
     }
 
     /// The custom (package-label) foods, listed in every request: a search only
@@ -273,8 +323,9 @@ final class Logger {
         for (i, it) in items.enumerated() {
             let said = it["said"]?.string ?? "None"
             let grams = it["grams"]?.double, portion = it["portion"]?.string
-            if (grams == nil) == (portion == nil) {
-                return .failure(.init(description: "item \(i) (\(said)): give exactly one of grams or portion"))
+            let amount = it["amount"]?.double, unit = it["unit"]?.string
+            if let m = FoodDB.amountError(grams: grams, portion: portion, amount: amount, unit: unit) {
+                return .failure(.init(description: "item \(i) (\(said)): \(m)"))
             }
             if needed, !["weighed", "portion", "estimated"].contains(it["basis"]?.string ?? "") {
                 return .failure(.init(description: "item \(i) (\(said)): basis must be weighed, portion or estimated"))
@@ -291,7 +342,8 @@ final class Logger {
                 }
             }
             out.append(Checked(amount: .init(fdcID: fdcID, grams: grams, portion: portion,
-                                             quantity: it["quantity"]?.double ?? 1), adjust: adjust, it: it))
+                                             quantity: it["quantity"]?.double ?? 1, amount: amount, unit: unit),
+                               adjust: adjust, it: it))
         }
         return .success(out)
     }
@@ -324,7 +376,7 @@ final class Logger {
         case .failure(let f): return error(f.description)
         case .success(let c): checked = c
         }
-        let keys = ["fdc_id", "said", "grams", "portion", "quantity"]
+        let keys = ["fdc_id", "said", "grams", "portion", "quantity", "amount", "unit"]
         for i in items.indices {
             for j in 0..<i where keys.allSatisfy({ items[j][$0] == items[i][$0] }) {
                 return error("item \(i) repeats item \(j); list each food once (use quantity or grams for more of it)")
@@ -386,7 +438,7 @@ final class Logger {
 
     // MARK: - recipes
 
-    /// A recipe's breakdown for the user to review before saving.
+    /// A recipe's breakdown, saved as it comes back.
     struct RecipeDraft: Equatable {
         struct Ingredient: Equatable {
             var fdcID: Int
@@ -455,6 +507,30 @@ final class Logger {
         return draft
     }
 
+    // MARK: - combining entries
+
+    /// brain.py's name_combined: what foods being combined into one entry make
+    /// ("Guacamole"), steered by what the user said about them, if anything.
+    func nameCombined(_ items: [LogDB.Item], said: String?) async throws -> String {
+        let p = try await client.route(profiles.profiles, needsVision: false)
+        return try await nameCombined(items, said: said) { req, w in try await self.client.send(req, via: p, onWait: w) }
+    }
+
+    func nameCombined(_ items: [LogDB.Item], said: String?, send: Send) async throws -> String {
+        let said = said?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = brain.combinePrompt + "\n\nFoods:\n"
+            + items.map { "\(fmt($0.grams)) g \($0.said ?? $0.description)" }.joined(separator: "\n")
+            + (said?.isEmpty == false ? "\n\nThe user says: \(said!)" : "")
+        let reply = try await send(LLM.Request(messages: [.user(text)], jsonSchema: ("combine", brain.combineSchema)), { _ in })
+        guard let out = try? JSON.parse(reply.text), case .object = out else {
+            throw Failure(description: "combine namer returned non-JSON: \(reply.text.prefix(200))")
+        }
+        guard let name = out["name"]?.string?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
+            throw Failure(description: "the model gave no name")
+        }
+        return name
+    }
+
     // MARK: - package labels
 
     /// What a Nutrition Facts photo says, per serving, for the add-food form.
@@ -468,7 +544,6 @@ final class Logger {
     /// What a recipe photo says, for the recipe form.
     struct RecipePhoto: Equatable {
         var name: String?
-        var servings: Double?
         /// One ingredient per line.
         var text: String
     }
@@ -489,7 +564,7 @@ final class Logger {
             throw Failure(description: "Couldn't read a recipe in that photo. Try again closer, in good light, "
                                        + "with the ingredient list in view.")
         }
-        return RecipePhoto(name: out["name"]?.string, servings: out["servings"]?.double, text: lines.joined(separator: "\n"))
+        return RecipePhoto(name: out["name"]?.string, text: lines.joined(separator: "\n"))
     }
 
     /// One photo + instructions -> the model's JSON, held to `schema`.
@@ -532,13 +607,6 @@ final class Logger {
         try log.setItem(item.id, .init(fdcID: id, description: n.description, said: item.said, grams: n.grams,
                                        basis: grams != nil ? "weighed" : item.basis, note: swapped ? nil : item.note,
                                        adjust: adjust, values: n.values))
-    }
-
-    func addItem(to entryID: Int64, fdcID: Int, grams: Double) throws {
-        guard grams > 0 else { throw Failure(description: "Enter the grams first.") }
-        let n = try foods.compute([(.init(fdcID: fdcID, grams: grams), nil)])[0]
-        try log.appendItem(entryID, .init(fdcID: fdcID, description: n.description, said: nil, grams: n.grams,
-                                          basis: "weighed", note: nil, adjust: nil, values: n.values))
     }
 
     // MARK: - JSON for the model

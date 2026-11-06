@@ -9,6 +9,10 @@ nonisolated struct Brain: Decodable {
     let tools: [LLM.Tool]
     let finishHint: String
     let maxRounds: Int
+    /// The recent-foods block's heading, how many days back and how many foods.
+    let recentFoods: String
+    let recentDays: Int
+    let recentMax: Int
     let recipeSystem: String
     let recipeTools: [LLM.Tool]
     let recipeFinishHint: String
@@ -17,12 +21,16 @@ nonisolated struct Brain: Decodable {
     let labelSchema: JSON
     let recipePhotoPrompt: String
     let recipePhotoSchema: JSON
+    let combinePrompt: String
+    let combineSchema: JSON
 
     enum CodingKeys: String, CodingKey {
         case system, editSystem = "edit_system", tools, finishHint = "finish_hint", maxRounds = "max_rounds"
+        case recentFoods = "recent_foods", recentDays = "recent_days", recentMax = "recent_max"
         case recipeSystem = "recipe_system", recipeTools = "recipe_tools", recipeFinishHint = "recipe_finish_hint"
         case recipeRounds = "recipe_rounds", labelPrompt = "label_prompt", labelSchema = "label_schema"
         case recipePhotoPrompt = "recipe_photo_prompt", recipePhotoSchema = "recipe_photo_schema"
+        case combinePrompt = "combine_prompt", combineSchema = "combine_schema"
     }
 
     private struct ToolSpec: Decodable {
@@ -40,6 +48,9 @@ nonisolated struct Brain: Decodable {
         }
         finishHint = try c.decode(String.self, forKey: .finishHint)
         maxRounds = try c.decode(Int.self, forKey: .maxRounds)
+        recentFoods = try c.decode(String.self, forKey: .recentFoods)
+        recentDays = try c.decode(Int.self, forKey: .recentDays)
+        recentMax = try c.decode(Int.self, forKey: .recentMax)
         recipeSystem = try c.decode(String.self, forKey: .recipeSystem)
         recipeTools = try c.decode([ToolSpec].self, forKey: .recipeTools).map {
             LLM.Tool(name: $0.name, description: $0.description, parameters: $0.parameters)
@@ -50,6 +61,8 @@ nonisolated struct Brain: Decodable {
         labelSchema = try c.decode(JSON.self, forKey: .labelSchema)
         recipePhotoPrompt = try c.decode(String.self, forKey: .recipePhotoPrompt)
         recipePhotoSchema = try c.decode(JSON.self, forKey: .recipePhotoSchema)
+        combinePrompt = try c.decode(String.self, forKey: .combinePrompt)
+        combineSchema = try c.decode(JSON.self, forKey: .combineSchema)
     }
 
     static func bundled() throws -> Brain {
