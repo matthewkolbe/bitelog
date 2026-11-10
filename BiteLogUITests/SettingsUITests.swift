@@ -85,6 +85,34 @@ final class SettingsUITests: XCTestCase {
         XCTAssertTrue(changed.waitForExistence(timeout: 300), "the change was never applied")
         shot(app, "10-changed")
 
+        // leave the app right after logging: the entry still finishes, no error
+        if app.buttons["Type instead"].exists { app.buttons["Type instead"].tap() }
+        XCTAssertTrue(box.waitForExistence(timeout: 5))
+        box.tap()
+        box.typeText("a medium apple")
+        app.buttons["Log it"].tap()
+        XCUIDevice.shared.press(.home)
+        Thread.sleep(forTimeInterval: 20)
+        app.activate()
+        let apple = NSPredicate(format: "label CONTAINS 'apple' AND label MATCHES '.*[0-9]+$'")
+        XCTAssertTrue(app.buttons.matching(apple).firstMatch.waitForExistence(timeout: 300), "the apple never finished")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label CONTAINS 'apple' AND label CONTAINS[c] 'error'")).firstMatch.exists)
+        shot(app, "10b-after-leaving")
+
+        // a meal forgotten yesterday, logged from yesterday's page, stays there
+        app.buttons["Previous day"].tap()
+        if app.buttons["Type instead"].exists { app.buttons["Type instead"].tap() }
+        XCTAssertTrue(box.waitForExistence(timeout: 5))
+        box.tap()
+        box.typeText("two slices of whole wheat toast")
+        app.buttons["Log it"].tap()
+        let toast = NSPredicate(format: "label CONTAINS[c] 'toast' AND label MATCHES '.*[0-9]+$'")
+        XCTAssertTrue(app.buttons.matching(toast).firstMatch.waitForExistence(timeout: 300), "the toast never finished")
+        XCTAssertTrue(app.staticTexts["Yesterday"].exists, "left yesterday's page")
+        shot(app, "10c-yesterday")
+        app.buttons["Next day"].tap()
+        XCTAssertFalse(app.buttons.matching(toast).firstMatch.waitForExistence(timeout: 2), "the toast went on today")
+
         // a recipe, broken down by the model
         app.tabBars.buttons["Settings"].tap()
         let foods = app.buttons["My foods and recipes"]

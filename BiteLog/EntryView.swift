@@ -41,7 +41,7 @@ struct EntryDetail: View {
                 }
             }
             if Self.settled(e) && !e.items.isEmpty {
-                Button(action: saveRecipe) { Self.tile("Save", "square.and.arrow.down") }
+                Button(action: saveRecipe) { Self.tile("As recipe", "square.and.arrow.down") }
                     .accessibilityLabel("Save as a recipe")
             }
             Button(role: .destructive) { confirmDelete = true } label: { Self.tile("Delete", "trash") }

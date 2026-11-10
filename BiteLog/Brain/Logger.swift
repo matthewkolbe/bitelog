@@ -22,6 +22,14 @@ final class Logger {
     @ObservationIgnored var transcribe: (URL) async throws -> Transcriber.Transcript = Transcriber.transcribe
     private(set) var running = false
     @ObservationIgnored private var again = false
+    /// Keeps the app running in the background while the queue works; the
+    /// app sets it. Returns the call that lets the app suspend again.
+    @ObservationIgnored var keepAlive: () -> () -> Void = { {} }
+    /// How many times the app has left the screen.
+    @ObservationIgnored private(set) var leaves = 0
+
+    /// The app left the screen: iOS may cut off what's in flight.
+    func leftApp() { leaves += 1 }
 
     /// The entry was deleted while it was being processed.
     struct Gone: Error {}
@@ -53,7 +61,8 @@ final class Logger {
         guard !running else { again = true; return }
         running = true
         Task {
-            defer { running = false }
+            let suspend = keepAlive()
+            defer { running = false; suspend() }
             repeat {
                 again = false
                 for id in (try? log.unfinished()) ?? [] {
@@ -63,11 +72,13 @@ final class Logger {
         }
     }
 
-    /// One entry. False when no model is available (the entry stays queued and
-    /// the rest wait too).
+    /// One entry. False when no model is available, or the app left the screen
+    /// and the work was cut off: the entry stays queued and the rest wait too,
+    /// until the app is back.
     @discardableResult
     func process(_ id: Int64) async -> Bool {
         var request: String?
+        let left = leaves
         do {
             var e = try entry(id)
             request = e.pendingEdit
@@ -113,6 +124,10 @@ final class Logger {
                                                    "use_profile": nil])
             try await run(id) { req, onWait in try await self.client.send(req, via: profile, onWait: onWait) }
         } catch is Gone {
+        } catch where leaves != left {
+            // cut off in the background, not a failure: it runs again when the app is back
+            try? log.update(id, status: .queued, ["error": nil])
+            return false
         } catch {
             if let request {
                 // a change that can't be applied leaves the entry as it was, with the reason on it
@@ -182,6 +197,11 @@ final class Logger {
         f.timeZone = tz
         f.dateFormat = "EEEE yyyy-MM-dd HH:mm"
         var lines = ["Entry time: \(f.string(from: e.createdAt)) (user's local time)."]
+        if let d = e.forDay, let date = LogDB.date(d, tz), e.pendingEdit == nil {
+            f.dateFormat = "EEEE yyyy-MM-dd"
+            lines.append("It is for \(f.string(from: date)), the day the user picked: leave day_offset out. "
+                         + "The time it was eaten that day is unknown: set meal only when it was said or the food makes it plain.")
+        }
         if let t = e.transcript, !t.isEmpty { lines.append("Voice transcript: \(t)") }
         if !e.alternatives.isEmpty {
             lines.append("The recognizer's other readings of it: " + e.alternatives.map { "\u{201C}\($0)\u{201D}" }.joined(separator: ", "))
@@ -390,7 +410,9 @@ final class Logger {
         })
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = tz
-        let day = LogDB.day(cal.date(byAdding: .day, value: offset, to: e.createdAt)!, tz)
+        // logged from an earlier day's page: that day, whatever the model counts
+        let day = edit == nil ? e.forDay ?? LogDB.day(cal.date(byAdding: .day, value: offset, to: e.createdAt)!, tz)
+            : LogDB.day(cal.date(byAdding: .day, value: offset, to: e.createdAt)!, tz)
         if let edit {
             let edits = String(decoding: try JSONEncoder().encode(current.edits + [edit]), as: UTF8.self)
             try log.update(e.id, status: .done, ["reply": args["summary"]?.string, "error": nil, "pending_edit": nil,

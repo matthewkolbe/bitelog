@@ -163,6 +163,30 @@ struct LoggerTests {
         #expect(try log.totals(day: e.day)["kcal"] == 77.15)
     }
 
+    /// Logged from an earlier day's page: it goes on that day, the model is
+    /// told so, and a day_offset from the model doesn't move it.
+    @Test func loggedForAnEarlierDay() async throws {
+        let utc = TimeZone(identifier: "UTC")!
+        let now = ISO8601DateFormatter().date(from: "2026-11-09T08:30:00Z")!
+        let grapes = #"{"fdc_id": 2263890, "said": "grapes", "grams": 100, "basis": "weighed"}"#
+        let id = try log.addEntry(text: "100 g of grapes", at: now, tz: utc, forDay: "2026-11-07")
+        #expect(try log.entries(day: "2026-11-07").map(\.id) == [id])
+        let s = Script([[("log_food", #"{"items": [\#(grapes)], "summary": ""}"#)]])
+        try await logger.run(id) { try s.send($0, $1) }
+        #expect(try #require(try log.entry(id)).day == "2026-11-07")
+        guard case .user(let parts) = s.requests[0].messages[1], case .text(let said) = parts[0] else {
+            Issue.record("no user message"); return
+        }
+        #expect(said.hasPrefix("Entry time: Monday 2026-11-09 08:30 (user's local time).\n"
+                               + "It is for Saturday 2026-11-07, the day the user picked: leave day_offset out."))
+
+        let back = try log.addEntry(text: "100 g of grapes", at: now, tz: utc, forDay: "2026-11-07")
+        try await logger.run(back) {
+            try Script([[("log_food", #"{"items": [\#(grapes)], "day_offset": -1, "summary": ""}"#)]]).send($0, $1)
+        }
+        #expect(try #require(try log.entry(back)).day == "2026-11-07")
+    }
+
     @Test func duplicateItemsAreRejected() async throws {
         let item = #"{"fdc_id": 2263890, "said": "grapes", "grams": 100, "basis": "weighed"}"#
         let s = Script([
@@ -436,6 +460,45 @@ struct LoggerTests {
         #expect(redone.items.isEmpty && redone.status == .queued && redone.reply == nil)
     }
 
+    /// Work cut off because the app left the screen isn't an error: the entry
+    /// goes back in the queue, and the rest wait, until the app is back. The
+    /// same failure with the app on screen is an error.
+    @Test func cutOffInTheBackgroundIsQueued() async throws {
+        let rec = try Media.save(Data("RIFF".utf8), ext: "wav")
+        let id = try log.addEntry(audio: rec)
+        logger.transcribe = { [logger] _ in logger.leftApp(); throw URLError(.networkConnectionLost) }
+        #expect(try await !logger.process(id))
+        var e = try #require(try log.entry(id))
+        #expect(e.status == .queued && e.error == nil)
+        #expect(try log.unfinished().contains(id))
+
+        logger.transcribe = { _ in throw URLError(.networkConnectionLost) }
+        #expect(try await logger.process(id))
+        e = try #require(try log.entry(id))
+        #expect(e.status == .error)
+    }
+
+    /// Two fingers on neighbouring entries start close together; closing 40
+    /// points is enough there. Far apart, 60% of the spread is.
+    @Test func pinchingNeighbours() {
+        #expect(!EntryPinch.closed(start: 90, scale: 0.6))
+        #expect(EntryPinch.closed(start: 90, scale: 0.55))
+        #expect(EntryPinch.closed(start: 100, scale: 0.6))
+        #expect(EntryPinch.closed(start: 300, scale: 0.59))
+        #expect(!EntryPinch.closed(start: 300, scale: 0.9))
+    }
+
+    /// A finger in the gap between two entries counts for the nearer one.
+    @Test func touchInTheGapPicksTheNearerEntry() {
+        let f = RowFrames()
+        f.frames = [1: CGRect(x: 16, y: 100, width: 360, height: 80), 2: CGRect(x: 16, y: 200, width: 360, height: 80)]
+        #expect(f.entry(at: CGPoint(x: 100, y: 150)) == 1)
+        #expect(f.entry(at: CGPoint(x: 100, y: 185)) == 1)
+        #expect(f.entry(at: CGPoint(x: 100, y: 196)) == 2)
+        #expect(f.entry(at: CGPoint(x: 100, y: 330)) == nil)
+        #expect(f.entry(at: CGPoint(x: 5, y: 185)) == nil)
+    }
+
     /// Redo with a chosen model: that model or none. Gone or switched off is an
     /// error on the entry; not answering keeps it queued for that model without
     /// holding up the other entries. An export never carries the choice.
@@ -558,6 +621,25 @@ struct LoggerTests {
 
     /// Named from the foods alone, and steered by what the user said. Neither
     /// dish is the prompt's example.
+    /// Logged from an earlier day's page: the entry stays on that day, and
+    /// the meal comes from what was said, not the time it was added.
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
+    func liveLoggedForAnEarlierDay() async throws {
+        let p = Self.liveProfile()
+        let send: Logger.Send = { req, w in try await logger.client.send(req, via: p, onWait: w) }
+        let now = Date()
+        let cal = Calendar.current
+        let day = { (n: Int) in LogDB.day(cal.date(byAdding: .day, value: n, to: now)!, .current) }
+        for (said, from, want) in [("two slices of whole wheat toast", -1, -1), ("a bowl of oatmeal with milk", -3, -3),
+                                   ("chicken and rice for dinner", -1, -1), ("an apple", -2, -2)] {
+            let id = try log.addEntry(text: said, at: now, forDay: day(from))
+            try await logger.run(id, send: send)
+            let e = try #require(try log.entry(id))
+            #expect(e.day == day(want), "\(said): \(e.day), wanted \(day(want))")
+            if said.hasSuffix("dinner") { #expect(e.meal == "dinner", "\(said): \(e.meal ?? "no meal")") }
+        }
+    }
+
     @Test(.enabled(if: ProcessInfo.processInfo.environment["BITELOG_LIVE"] != nil), .timeLimit(.minutes(10)))
     func liveCombinedNames() async throws {
         let p = Self.liveProfile()

@@ -153,13 +153,14 @@ final class Recorder {
 
     func start() async throws {
         guard !isRecording else { return }
-        guard await AVAudioApplication.requestRecordPermission() else {
-            state = .denied
-            return
+        // asking again once it's settled costs a trip through the system on every press
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted: break
+        case .denied: state = .denied; return
+        default:
+            guard await AVAudioApplication.requestRecordPermission() else { state = .denied; return }
         }
-        let session = AVAudioSession.sharedInstance()
-        try session.setCategory(.record, mode: .default)
-        try session.setActive(true)
+        try await Self.openSession()
         let url = FileManager.default.temporaryDirectory.appendingPathComponent("rec-\(UUID().uuidString).wav")
         let r = try AVAudioRecorder(url: url, settings: [
             AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16_000, AVNumberOfChannelsKey: 1,
@@ -169,6 +170,14 @@ final class Recorder {
         recorder = r
         file = url
         state = .recording(since: Date())
+    }
+
+    /// Switches the audio to recording. It can take a moment, so it runs off
+    /// the main thread and the button shows the press meanwhile.
+    @concurrent private nonisolated static func openSession() async throws {
+        let session = AVAudioSession.sharedInstance()
+        if session.category != .record { try session.setCategory(.record, mode: .default) }
+        try session.setActive(true)
     }
 
     /// The recording, or nil when it was too short to hold words (a tap).

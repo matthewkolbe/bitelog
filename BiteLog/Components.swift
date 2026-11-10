@@ -25,13 +25,20 @@ struct HoldToTalk: View {
                     .foregroundStyle(.white)
                     .frame(maxWidth: .infinity).frame(height: size)
                     .background(live ? Color.red : Color.accentColor, in: .capsule)
+                    // the finger is seen at once; red once the mic is on
+                    .scaleEffect(pressed && !live ? 0.96 : 1)
+                    .opacity(pressed && !live ? 0.75 : 1)
             } else {
                 Image(systemName: live ? "waveform.circle.fill" : "mic.circle.fill")
                     .font(.system(size: size))
                     .symbolEffect(.pulse, isActive: live)
                     .foregroundStyle(live ? Color.red : Color.accentColor)
+                    .scaleEffect(pressed && !live ? 0.9 : 1)
             }
         }
+            .animation(.easeOut(duration: 0.08), value: pressed)
+            // a tap when the mic is on: talk now
+            .sensoryFeedback(.impact(weight: .medium), trigger: live) { _, on in on }
             .contentShape(.rect)
             .gesture(DragGesture(minimumDistance: 0)
                 .onChanged { _ in

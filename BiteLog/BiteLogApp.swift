@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct BiteLogApp: App {
@@ -43,9 +44,28 @@ struct AppModel {
         let log = try LogDB.app()
         let profiles = try ProfileStore.app()
         let client = LLMClient()
-        return AppModel(foods: foods, log: log, profiles: profiles, client: client,
-                        logger: Logger(foods: foods, log: log, brain: try Brain.bundled(), client: client,
-                                       profiles: profiles))
+        let logger = Logger(foods: foods, log: log, brain: try Brain.bundled(), client: client, profiles: profiles)
+        // entries keep going when the app leaves the screen, as long as iOS
+        // allows; whatever it cuts off runs again when the app is back
+        logger.keepAlive = { let t = BackgroundTime("Logging"); return t.end }
+        NotificationCenter.default.addObserver(forName: UIApplication.didEnterBackgroundNotification, object: nil,
+                                               queue: .main) { _ in MainActor.assumeIsolated { logger.leftApp() } }
+        return AppModel(foods: foods, log: log, profiles: profiles, client: client, logger: logger)
+    }
+}
+
+/// Background running time from iOS, until `end` or iOS takes it back.
+final class BackgroundTime {
+    private var id = UIBackgroundTaskIdentifier.invalid
+
+    init(_ name: String) {
+        id = UIApplication.shared.beginBackgroundTask(withName: name) { [weak self] in self?.end() }
+    }
+
+    func end() {
+        guard id != .invalid else { return }
+        UIApplication.shared.endBackgroundTask(id)
+        id = .invalid
     }
 }
 

@@ -119,7 +119,17 @@ struct CombineSheet: View {
 final class RowFrames {
     var frames: [Int64: CGRect] = [:]
 
-    func entry(at p: CGPoint) -> Int64? { frames.first { $0.value.contains(p) }?.key }
+    /// The entry at `p`, or, in the gap between two, the nearer one.
+    func entry(at p: CGPoint) -> Int64? {
+        if let hit = frames.first(where: { $0.value.contains(p) }) { return hit.key }
+        return frames.filter { $0.value.insetBy(dx: 0, dy: -Self.gap).contains(p) }
+            .min { distance($0.value, p) < distance($1.value, p) }?.key
+    }
+
+    /// More than the space between two entries.
+    static let gap: CGFloat = 24
+
+    private func distance(_ r: CGRect, _ p: CGPoint) -> CGFloat { p.y < r.minY ? r.minY - p.y : p.y - r.maxY }
 }
 
 /// Two fingers pinching entries together. It begins only when each finger
@@ -129,12 +139,14 @@ struct EntryPinch: UIGestureRecognizerRepresentable {
     /// The two entries under the fingers -> whether to begin.
     let qualify: (Int64, Int64) -> Bool
     let frames: RowFrames
-    /// The fingers' spread, 1 at the start, smaller as they close.
-    let changed: (CGFloat) -> Void
+    /// Whether the fingers have closed far enough to combine, as they move.
+    let changed: (Bool) -> Void
     /// Whether the fingers closed far enough to combine.
     let ended: (Bool) -> Void
 
-    static let threshold: CGFloat = 0.6
+    /// Far enough: to 60% of the starting spread, or 40 points closer. Two
+    /// neighbouring entries start too close together for 60% alone.
+    static func closed(start: CGFloat, scale: CGFloat) -> Bool { scale < 0.6 || start * (1 - scale) >= 40 }
 
     func makeCoordinator(converter: CoordinateSpaceConverter) -> Coordinator { Coordinator() }
 
@@ -155,9 +167,13 @@ struct EntryPinch: UIGestureRecognizerRepresentable {
     }
 
     func handleUIGestureRecognizerAction(_ g: UIPinchGestureRecognizer, context: Context) {
+        let c = context.coordinator
         switch g.state {
-        case .changed: changed(g.scale)
-        case .ended: ended(g.scale < Self.threshold)
+        case .began:
+            let (p, q) = (g.location(ofTouch: 0, in: nil), g.location(ofTouch: 1, in: nil))
+            c.start = hypot(p.x - q.x, p.y - q.y)
+        case .changed: changed(Self.closed(start: c.start, scale: g.scale))
+        case .ended: ended(Self.closed(start: c.start, scale: g.scale))
         case .cancelled, .failed: ended(false)
         default: break
         }
@@ -165,6 +181,8 @@ struct EntryPinch: UIGestureRecognizerRepresentable {
 
     final class Coordinator: NSObject, UIGestureRecognizerDelegate {
         var shouldBegin: (UIGestureRecognizer) -> Bool = { _ in false }
+        /// The fingers' spread when they began.
+        var start: CGFloat = 0
 
         func gestureRecognizerShouldBegin(_ g: UIGestureRecognizer) -> Bool { shouldBegin(g) }
 

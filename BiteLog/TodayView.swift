@@ -7,6 +7,8 @@ struct TodayView: View {
     let model: AppModel
 
     @State private var day = LogDB.day(Date(), .current)
+    @State private var leftOnToday = false
+    @State private var leftAt = Date()
     @State private var text = ""
     @State private var writeError: String?
     @State private var photo: Data?
@@ -66,10 +68,7 @@ struct TodayView: View {
             if let writeError { Text(writeError).foregroundStyle(.red) }
         }
         .gesture(EntryPinch(qualify: { a, b in startPinch(a, b, shown) }, frames: frames,
-                            changed: { scale in
-                                let ready = scale < EntryPinch.threshold
-                                if ready != pinchReady { pinchReady = ready }
-                            },
+                            changed: { ready in if ready != pinchReady { pinchReady = ready } },
                             ended: { combine in
                                 // the pinched stay picked: swipe one right to combine them
                                 if combine { selecting = true; picked.formUnion(pinched) }
@@ -130,7 +129,15 @@ struct TodayView: View {
             }
         }
         .safeAreaInset(edge: .bottom) { composer }
-        .onChange(of: phase) { _, p in if p == .active { model.logger.kick() } }
+        .onChange(of: phase) { _, p in
+            // back on today after 10 minutes away, or when it was left on Today
+            // (overnight, so entries don't go on yesterday)
+            if p == .background { leftOnToday = day == today; leftAt = Date() }
+            if p == .active {
+                if leftOnToday || Date().timeIntervalSince(leftAt) > 600 { day = today }
+                model.logger.kick()
+            }
+        }
         .task {
             // entries waiting for a model are retried every 30 s while the app is open
             while !Task.isCancelled {
@@ -223,10 +230,11 @@ struct TodayView: View {
         let t = text?.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
             let p = try photo.map { try Media.save($0, ext: "jpg") }
-            _ = try log.addEntry(text: t?.isEmpty == false ? t : nil, audio: audio, photo: p)
+            // on an earlier day's page, it's for that day
+            _ = try log.addEntry(text: t?.isEmpty == false ? t : nil, audio: audio, photo: p,
+                                 forDay: day < today ? day : nil)
             if text != nil { self.text = ""; keyboard = false }
             typing = false
-            day = today
             writeError = nil
             model.logger.kick()
         } catch {
@@ -470,7 +478,10 @@ struct EntryRow: View {
     }
 
     @ViewBuilder private var status: some View {
-        let time = entry.createdAt.formatted(date: .omitted, time: .shortened)
+        // logged on a later day ("yesterday", or from that day's page): say when it was added
+        let tz = TimeZone(identifier: entry.tz) ?? .current
+        let time = LogDB.day(entry.createdAt, tz) == entry.day ? entry.createdAt.formatted(date: .omitted, time: .shortened)
+            : "added " + entry.createdAt.formatted(.dateTime.month(.abbreviated).day())
         if let edit = entry.pendingEdit {
             Label("Changing: “\(edit)”", systemImage: "pencil").foregroundStyle(.secondary).lineLimit(2)
         } else {

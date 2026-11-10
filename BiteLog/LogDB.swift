@@ -49,6 +49,9 @@ final class LogDB {
         var useProfile: UUID?
         /// The user's name for it ("Smoothie"), set when entries are combined.
         var title: String?
+        /// The day it was logged for, when that was an earlier day's page
+        /// (YYYY-MM-DD): the user picked it, so the model doesn't move it.
+        var forDay: String?
         var items: [Item] = []
 
         var kcal: Double { items.reduce(0) { $0 + (($1.values["kcal"] ?? nil) ?? 0) } }
@@ -109,7 +112,8 @@ final class LogDB {
             edits      TEXT,                   -- JSON list of the change requests applied, in order
             pending_edit TEXT,                 -- a change request (its text) waiting its turn
             use_profile TEXT,                  -- a profile id: run the next turn with this model only
-            title      TEXT                    -- the user's name for it, given when entries are combined
+            title      TEXT,                   -- the user's name for it, given when entries are combined
+            for_day    TEXT                    -- the day it was logged for, from that day's page (YYYY-MM-DD)
         );
         CREATE INDEX IF NOT EXISTS entry_day ON entry(day);
         CREATE TABLE IF NOT EXISTS item (
@@ -150,6 +154,9 @@ final class LogDB {
         if !(try db.columns("main", "entry")).contains("title") {
             try db.execute("ALTER TABLE entry ADD COLUMN title TEXT")
         }
+        if !(try db.columns("main", "entry")).contains("for_day") {
+            try db.execute("ALTER TABLE entry ADD COLUMN for_day TEXT")
+        }
     }
 
     static func app() throws -> LogDB {
@@ -161,14 +168,15 @@ final class LogDB {
     // MARK: - writing
 
     /// A new entry, queued for the model: typed text, a voice recording and/or
-    /// a photo (media file names). Its day is the local date now.
+    /// a photo (media file names). Its day is the local date now, or `forDay`
+    /// when it's logged from an earlier day's page.
     func addEntry(text: String? = nil, audio: String? = nil, photo: String? = nil, at date: Date = Date(),
-                  tz: TimeZone = .current) throws -> Int64 {
+                  tz: TimeZone = .current, forDay: String? = nil) throws -> Int64 {
         defer { revision += 1 }
         func opt(_ s: String?) -> SQLite.Value { s.map(SQLite.Value.text) ?? .null }
-        return try db.run("INSERT INTO entry(created_at, tz, day, text, audio, photo, status) VALUES (?,?,?,?,?,?,?)",
-                          [.real(date.timeIntervalSince1970), .text(tz.identifier), .text(Self.day(date, tz)),
-                           opt(text), opt(audio), opt(photo), .text(Status.queued.rawValue)])
+        return try db.run("INSERT INTO entry(created_at, tz, day, text, audio, photo, status, for_day) VALUES (?,?,?,?,?,?,?,?)",
+                          [.real(date.timeIntervalSince1970), .text(tz.identifier), .text(forDay ?? Self.day(date, tz)),
+                           opt(text), opt(audio), opt(photo), .text(Status.queued.rawValue), opt(forDay)])
     }
 
     /// Redo with the model from scratch: the items and summary go; the changes
@@ -366,7 +374,7 @@ final class LogDB {
                      error: r["error"]?.string, meal: r["meal"]?.string, model: r["model"]?.string,
                      edits: try r["edits"]?.string.map { try JSONDecoder().decode([String].self, from: Data($0.utf8)) } ?? [],
                      pendingEdit: r["pending_edit"]?.string, useProfile: r["use_profile"]?.string.flatMap(UUID.init),
-                     title: r["title"]?.string, items: items)
+                     title: r["title"]?.string, forDay: r["for_day"]?.string, items: items)
     }
 
     // MARK: - export and load
@@ -419,6 +427,15 @@ final class LogDB {
     }
 
     /// The local date of `date` in `tz`, YYYY-MM-DD.
+    /// Noon of a YYYY-MM-DD day in `tz`.
+    static func date(_ day: String, _ tz: TimeZone) -> Date? {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.timeZone = tz
+        f.dateFormat = "yyyy-MM-dd HH:mm"
+        return f.date(from: day + " 12:00")
+    }
+
     static func day(_ date: Date, _ tz: TimeZone) -> String {
         var cal = Calendar(identifier: .gregorian)
         cal.timeZone = tz
